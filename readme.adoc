@@ -47,7 +47,7 @@ http://matrix.wikia.com/wiki/Apoc[Apoc^] was the technician and driver on board 
 // tag::cfg-verification-text[]
 This is a fork version of the original https://github.com/neo4j-contrib/neo4j-apoc-procedures[APOC Github Project]. The reason why we did a fork was because to keep up with the Neo4J versions. It is important to note that for APOC to work properly, it needs to be consistent with the version of Neo4J. 
 
-In our forked version of APOC, we included a new file in the https://github.com/xyfke/neo4j-apoc-CFG-SE/blob/4.4/core/src/main/java/apoc/path/DataflowPath.java[/core/src/main/java/apoc/path/Dataflow.java] called Dataflow.java to help construct the dataflow paths in behaviour alteration and publisher alteration queries. Specifically, it verifies the feasibility of the CFG paths on the fly as it construct the varWrite and parWrite paths. 
+In our forked version of APOC, we included a new file https://github.com/xyfke/neo4j-apoc-CFG-SE/blob/4.4/core/src/main/java/apoc/path/DataflowPath.java[/core/src/main/java/apoc/path/Dataflow.java] to help construct the dataflow paths in behaviour alteration and publisher alteration queries. Specifically, it verifies the feasibility of the CFG paths on the fly as it construct the varWrite and parWrite paths. 
 
 The key function that we use is: `apoc.path.varParPath(start, end, cfgCheck, hasVW, hasPW)`  
 This function returns a varWrite/parWrite path from the `start` variable to the `end` variable using a BFS (Breath First Search) cfg feasibility embedded algorithm. More details can be seen in the Dataflow file.
