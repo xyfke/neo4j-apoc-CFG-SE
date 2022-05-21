@@ -256,7 +256,8 @@ public class DataflowPath {
 
     @UserFunction
     @Description("apoc.path.varParPath(start, end, cfgCheck, hasVW, hasPW) - finds a dataflow path consisting of varWrites/parWrites from one variable to another, hasVW and hasPW indicates whether or not to include or exclude VW or PW")
-    public Path varParPath(@Name("start") Node start, @Name("end") Node end, @Name("cfgCheck") boolean cfgCheck,
+    public Path varParPath(@Name("start") Node start, @Name("end") Node end, @Name("isPrefix") boolean isPrefix,
+                           @Name("cfgCheck") boolean cfgCheck,
                            @Name("hasVW") boolean hasVW, @Name("hasPW") boolean hasPW) {
 
         // terminates path if not exist
@@ -265,7 +266,8 @@ public class DataflowPath {
         }
 
         if ((start.equals(end))) {
-            return buildPath(start, null);
+            if (isPrefix) { return null; }
+            else { return buildPath(start, null); }
         }
 
         // define needed variables
@@ -275,9 +277,11 @@ public class DataflowPath {
 
         // add start to visitedNode, and add relationships connected to start to queuePath
         visitedNode.add(start);
-        Iterable<Relationship> varWriteRels = getNextRels(start, hasVW, hasPW);
         PathImpl.Builder builder = new PathImpl.Builder(start);
+        Iterable<Relationship> varWriteRels;
 
+        if (isPrefix) { varWriteRels = getNextRels(start, hasVW, hasPW); }
+        else { varWriteRels = getNextRels(start, hasVW, hasPW); }
 
         // add the relationships connected to start node
         for (Relationship varWriteRel : varWriteRels) {
@@ -378,6 +382,11 @@ public class DataflowPath {
     @Description("apoc.path.getCFGPath(r1, r2)")
     public List<Relationship> getCFGPath(@Name("r1") Relationship r1, @Name("r2") Relationship r2) {
 
+
+
+        if ((r1 == null) || (r2 == null)) {
+            return null;
+        }
 
         PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
                 new BasicEvaluationContext(tx, db),
