@@ -280,7 +280,7 @@ public class DataflowPath {
         PathImpl.Builder builder = new PathImpl.Builder(start);
         Iterable<Relationship> varWriteRels;
 
-        if (isPrefix) { varWriteRels = getNextRels(start, hasVW, hasPW); }
+        if (isPrefix) { varWriteRels = getNextRels(start, hasVW, false); }
         else { varWriteRels = getNextRels(start, hasVW, hasPW); }
 
         // add the relationships connected to start node
