@@ -377,6 +377,148 @@ public class DataflowPath {
 
     }
 
+    @UserFunction
+    @Description("apoc.path.varParPaths(start, end, cfgCheck, hasVW, hasPW) - finds a dataflow path consisting of varWrites/parWrites from one variable to another, hasVW and hasPW indicates whether or not to include or exclude VW or PW")
+    public List<Path> varParPaths(@Name("start") Node start, @Name("end") Node end, @Name("isPrefix") boolean isPrefix,
+                           @Name("cfgCheck") boolean cfgCheck,
+                           @Name("hasVW") boolean hasVW, @Name("hasPW") boolean hasPW) {
+
+        // terminates path if not exist
+        if ((start == null) || (end == null)) {
+            return null;
+        }
+
+        if ((start.equals(end))) {
+            if (isPrefix) { return new ArrayList<Path>(); }
+            else { return List.of(buildPath(start, null)); }
+        }
+
+        // define needed variables
+        HashSet<Node> visitedNode = new HashSet<Node>();
+        Queue<ArrayList<Relationship>> queuePath = new LinkedList<>();
+        ArrayList<Relationship> curRels = null;
+        List<List<Relationship>> returnRels = new ArrayList<List<Relationship>>();
+
+        // add start to visitedNode, and add relationships connected to start to queuePath
+        visitedNode.add(start);
+        PathImpl.Builder builder = new PathImpl.Builder(start);
+        Iterable<Relationship> varWriteRels;
+
+        if (isPrefix) { varWriteRels = getNextRels(start, hasVW, false); }
+        else { varWriteRels = getNextRels(start, hasVW, hasPW); }
+
+        // add the relationships connected to start node
+        for (Relationship varWriteRel : varWriteRels) {
+            if (!visitedNode.contains(varWriteRel.getEndNode())) {
+                ArrayList<Relationship> relList = new ArrayList<Relationship>();
+                relList.add(varWriteRel);
+                queuePath.add(relList);
+            }
+        }
+
+        // cfgPath variable
+        List<Relationship> cfgPath = null;
+        int pathLength = -1;
+        boolean foundPath = false;
+        HashSet<Node> visitedNodeCurr = new HashSet<Node>();
+
+        while (!queuePath.isEmpty()) {
+            // get first ArrayList<Relationship> item off of queuePath
+            curRels = queuePath.poll(); // get the array of varWrite-parWrite relationship
+            int curLen = curRels.size();
+
+            if (foundPath && curLen > pathLength) {
+                break;
+            }
+            if (curLen > pathLength) {
+                visitedNode.addAll(visitedNodeCurr);
+                visitedNodeCurr.clear();
+            }
+            pathLength = curLen;
+
+
+            // get the last relationship in the ArrayList path
+            Relationship curRel = curRels.get(curRels.size()-1);
+            Node curNode = curRel.getStartNode();
+            Node nextNode = curRel.getEndNode();
+
+            // check size of existing path
+            if (curRels.size() == 1) {
+                // if end node matches and length of path is 1 then return path without verifying CFG
+                if (nextNode.equals(end)) {
+                    returnRels.add(curRels);
+                    foundPath = true;
+                    continue;
+                    // otherwise, add the relationship connected to the next node to the queue
+                    // then continue with the search
+                } else {
+                    visitedNodeCurr.add(nextNode);
+                    varWriteRels = getNextRels(nextNode, hasVW, hasPW);
+                    if (varWriteRels == null) {
+                        continue;
+                    }
+                    for (Relationship varWriteRel : varWriteRels) {
+                        // only add not visited Nodes
+                        if (!visitedNode.contains(varWriteRel.getEndNode())) {
+                            ArrayList<Relationship> newCurRels = new ArrayList<Relationship>(curRels);
+                            newCurRels.add(varWriteRel);
+                            queuePath.add(newCurRels);
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            // if path contains 2 or more relationships, then we need to verify the cfg path prior to adding
+            Relationship prevRel = curRels.get(curRels.size()-2);
+            Node prevNode = prevRel.getStartNode();
+
+            if (cfgCheck) {
+                cfgPath = getCFGPath(prevRel, curRel);
+            } else {
+                cfgPath = new ArrayList<Relationship>();
+            }
+
+            // if there exists a CFG path, then this is a valid path, and we can continue, otherwise drop path
+            if (cfgPath != null) {
+
+                // if the nextNode happens to be equal to end node, then we found the path
+                if (nextNode.equals(end)) {
+                    returnRels.add(curRels);
+                    foundPath = true;
+                    continue;
+                } else {
+                    visitedNodeCurr.add(nextNode);
+                }
+
+                // otherwise keep looking
+                varWriteRels = getNextRels(nextNode, hasVW, hasPW);
+                if (varWriteRels == null) {
+                    continue;
+                }
+                // only add not visited Nodes
+                for (Relationship varWriteRel : varWriteRels) {
+                    if (!visitedNode.contains(varWriteRel.getEndNode())) {
+                        ArrayList<Relationship> newCurRels = new ArrayList<Relationship>(curRels);
+                        newCurRels.add(varWriteRel);
+                        queuePath.add(newCurRels);
+                    }
+                }
+            }
+
+        }
+
+        List<Path> returnPaths = new ArrayList<Path>();
+        for (List<Relationship> rels : returnRels) {
+            if ((rels != null) && (rels.size() > 0) && (rels.get(rels.size()-1).getEndNode().equals(end)) && (cfgPath != null || rels.size() == 1)) {
+                returnPaths.add(buildPath(start, (ArrayList<Relationship>)rels));
+            }
+        }
+
+        return returnPaths;
+    }
+
+
     // helper function: verify cfgPath
     @UserFunction
     @Description("apoc.path.getCFGPath(r1, r2)")
