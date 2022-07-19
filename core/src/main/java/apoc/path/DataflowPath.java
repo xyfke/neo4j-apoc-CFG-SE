@@ -509,8 +509,7 @@ public class DataflowPath {
 
         List<Path> returnPaths = new ArrayList<Path>();
         for (List<Relationship> rels : returnRels) {
-            if ((rels != null) && (rels.size() > 0) && (rels.get(rels.size()-1).getEndNode().equals(end)) &&
-                    (cfgPath != null || rels.size() == 1)) {
+            if ((rels != null) && (rels.size() > 0) && (rels.get(rels.size()-1).getEndNode().equals(end))) {
                 returnPaths.add(buildPath(start, (ArrayList<Relationship>)rels));
             }
 

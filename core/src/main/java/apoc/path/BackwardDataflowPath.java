@@ -529,8 +529,7 @@ public class BackwardDataflowPath {
 
         List<Path> returnPaths = new ArrayList<Path>();
         for (List<Relationship> rels : returnRels) {
-            if ((rels != null) && (rels.size() > 0) && (rels.get(rels.size() - 1).getStartNode().equals(start)) &&
-                    (cfgPath != null || rels.size() == 1)) {
+            if ((rels != null) && (rels.size() > 0) && (rels.get(rels.size() - 1).getStartNode().equals(start))) {
                 returnPaths.add(backwardbuildPath(start, (ArrayList<Relationship>) rels));
             }
         }
