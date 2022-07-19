@@ -387,13 +387,11 @@ public class BackwardDataflowPath {
 
     }
 
-
-    /*
     @UserFunction
-    @Description("apoc.path.varParPath(start, end, cfgCheck, hasVW, hasPW) - finds a dataflow path consisting of varWrites/parWrites from one variable to another, hasVW and hasPW indicates whether or not to include or exclude VW or PW")
-    public Path backwardvarParPath2(@Name("start") Node start, @Name("end") Node end, @Name("isPrefix") boolean isPrefix,
-                                   @Name("cfgCheck") boolean cfgCheck,
-                                   @Name("hasVW") boolean hasVW, @Name("hasPW") boolean hasPW) {
+    @Description("apoc.path.varParPaths(start, end, cfgCheck, hasVW, hasPW) - finds a dataflow path consisting of varWrites/parWrites from one variable to another, hasVW and hasPW indicates whether or not to include or exclude VW or PW")
+    public List<Path> backwardvarParPaths(@Name("start") Node start, @Name("end") Node end, @Name("isPrefix") boolean isPrefix,
+                                          @Name("cfgCheck") boolean cfgCheck,
+                                          @Name("hasVW") boolean hasVW, @Name("hasPW") boolean hasPW) {
 
         // terminates path if not exist
         if ((start == null) || (end == null)) {
@@ -401,8 +399,8 @@ public class BackwardDataflowPath {
         }
 
         if ((start.equals(end))) {
-            if (isPrefix) { return null; }
-            else { return backwardbuildPath(start, null); }
+            if (isPrefix) { return new ArrayList<Path>(); }
+            else { return List.of(backwardbuildPath(start, null)); }
         }
 
         // define needed variables
@@ -410,10 +408,12 @@ public class BackwardDataflowPath {
         Queue<ArrayList<Relationship>> queuePath = new LinkedList<>();
         ArrayList<Relationship> curRels = null;
 
+
         // add end to visitedNode, and add relationships connected to end to queuePath
         visitedNode.add(end);
         PathImpl.Builder builder = new PathImpl.Builder(start);
         Iterable<Relationship> varWriteRels;
+        List<List<Relationship>> returnRels = new ArrayList<List<Relationship>>();
 
         if (isPrefix) { varWriteRels = getPrevRels(end, hasVW, hasPW); }
         else { varWriteRels = getPrevRels(end, hasVW, hasPW); }
@@ -422,18 +422,34 @@ public class BackwardDataflowPath {
         for (Relationship varWriteRel : varWriteRels) {
             // if visitedNode does not contain the start node of the current relationship
             if (!visitedNode.contains(varWriteRel.getStartNode())) {
+                if (!(varWriteRel.getStartNode().equals(start)) || (varWriteRel.isType(RelTypes.varWrite))) {
                     ArrayList<Relationship> relList = new ArrayList<Relationship>();
                     relList.add(varWriteRel);
                     queuePath.add(relList);
+                }
             }
         }
 
         // cfgPath variable
         List<Relationship> cfgPath = null;
+        int pathLength = -1;
+        boolean foundPath = false;
+        HashSet<Node> visitedNodeCurr = new HashSet<Node>();
 
         while (!queuePath.isEmpty()) {
             // get first ArrayList<Relationship> item off of queuePath
             curRels = queuePath.poll(); // get the array of varWrite-parWrite relationship
+            int curLen = curRels.size();
+
+            if (foundPath && curLen > pathLength) {
+                break;
+            }
+            if (curLen > pathLength) {
+                visitedNode.addAll(visitedNodeCurr);
+                visitedNodeCurr = new HashSet<Node>();
+            }
+            pathLength = curLen;
+
 
             // get the last relationship in the ArrayList path
             Relationship curRel = curRels.get(curRels.size() - 1);
@@ -444,13 +460,13 @@ public class BackwardDataflowPath {
             if (curRels.size() == 1) {
                 // if start node matches and length of path is 1 then return path without verifying CFG
                 if (prevNode.equals(start)) {
-                    builder = builder.push(curRel);
-                    return builder.build();
-
+                    returnRels.add(curRels);
+                    foundPath = true;
+                    continue;
                     // otherwise, add the relationship connected to the next node to the queue
                     // then continue with the search
                 } else {
-                    visitedNode.add(prevNode);
+                    visitedNodeCurr.add(prevNode);
                     varWriteRels = getPrevRels(prevNode, hasVW, hasPW);
                     if (varWriteRels == null) {
                         continue;
@@ -458,9 +474,11 @@ public class BackwardDataflowPath {
                     for (Relationship varWriteRel : varWriteRels) {
                         // only add not visited Nodes
                         if (!visitedNode.contains(varWriteRel.getStartNode())) {
+                            if (!(varWriteRel.getStartNode().equals(start)) || (varWriteRel.isType(RelTypes.varWrite))) {
                                 ArrayList<Relationship> newCurRels = new ArrayList<Relationship>(curRels);
                                 newCurRels.add(varWriteRel);
                                 queuePath.add(newCurRels);
+                            }
                         }
                     }
                     continue;
@@ -480,11 +498,14 @@ public class BackwardDataflowPath {
 
             // if there exists a CFG path, then this is a valid path, and we can continue, otherwise drop path
             if (cfgPath != null) {
-                visitedNode.add(prevNode);
+                visitedNodeCurr.add(prevNode);
 
                 // if the prevNode happens to be equal to start node, then we found the path
                 if (prevNode.equals(start)) {
-                    break;
+                    returnRels.add(curRels);
+                    foundPath = true;
+                    continue;
+                } else {
                 }
 
                 // otherwise keep looking
@@ -495,27 +516,27 @@ public class BackwardDataflowPath {
                 // only add not visited Nodes
                 for (Relationship varWriteRel : varWriteRels) {
                     if (!visitedNode.contains(varWriteRel.getStartNode())) {
+                        if (!(varWriteRel.getStartNode().equals(start)) || (varWriteRel.isType(RelTypes.varWrite))) {
                             ArrayList<Relationship> newCurRels = new ArrayList<Relationship>(curRels);
                             newCurRels.add(varWriteRel);
                             queuePath.add(newCurRels);
+                        }
                     }
                 }
             }
 
         }
 
-        // only return path, if there exists one
-        if ((curRels != null) && (curRels.size() > 0) &&
-                (curRels.get(curRels.size()-1).getStartNode().equals(start)) && (cfgPath != null)) {
-            return backwardbuildPath(start, curRels);
+        List<Path> returnPaths = new ArrayList<Path>();
+        for (List<Relationship> rels : returnRels) {
+            if ((rels != null) && (rels.size() > 0) && (rels.get(rels.size() - 1).getStartNode().equals(start)) &&
+                    (cfgPath != null || rels.size() == 1)) {
+                returnPaths.add(backwardbuildPath(start, (ArrayList<Relationship>) rels));
+            }
         }
-        else {
-            return null;
-        }
-
+        return returnPaths;
     }
 
-     */
 
     // helper function: verify cfgPath
     @UserFunction

@@ -380,8 +380,8 @@ public class DataflowPath {
     @UserFunction
     @Description("apoc.path.varParPaths(start, end, cfgCheck, hasVW, hasPW) - finds a dataflow path consisting of varWrites/parWrites from one variable to another, hasVW and hasPW indicates whether or not to include or exclude VW or PW")
     public List<Path> varParPaths(@Name("start") Node start, @Name("end") Node end, @Name("isPrefix") boolean isPrefix,
-                           @Name("cfgCheck") boolean cfgCheck,
-                           @Name("hasVW") boolean hasVW, @Name("hasPW") boolean hasPW) {
+                                  @Name("cfgCheck") boolean cfgCheck,
+                                  @Name("hasVW") boolean hasVW, @Name("hasPW") boolean hasPW) {
 
         // terminates path if not exist
         if ((start == null) || (end == null)) {
@@ -432,7 +432,7 @@ public class DataflowPath {
             }
             if (curLen > pathLength) {
                 visitedNode.addAll(visitedNodeCurr);
-                visitedNodeCurr.clear();
+                visitedNodeCurr = new HashSet<Node>();
             }
             pathLength = curLen;
 
@@ -481,14 +481,13 @@ public class DataflowPath {
 
             // if there exists a CFG path, then this is a valid path, and we can continue, otherwise drop path
             if (cfgPath != null) {
+                visitedNodeCurr.add(nextNode);
 
                 // if the nextNode happens to be equal to end node, then we found the path
                 if (nextNode.equals(end)) {
                     returnRels.add(curRels);
                     foundPath = true;
                     continue;
-                } else {
-                    visitedNodeCurr.add(nextNode);
                 }
 
                 // otherwise keep looking
@@ -510,9 +509,12 @@ public class DataflowPath {
 
         List<Path> returnPaths = new ArrayList<Path>();
         for (List<Relationship> rels : returnRels) {
-            if ((rels != null) && (rels.size() > 0) && (rels.get(rels.size()-1).getEndNode().equals(end)) && (cfgPath != null || rels.size() == 1)) {
+            if ((rels != null) && (rels.size() > 0) && (rels.get(rels.size()-1).getEndNode().equals(end)) &&
+                    (cfgPath != null || rels.size() == 1)) {
                 returnPaths.add(buildPath(start, (ArrayList<Relationship>)rels));
             }
+
+
         }
 
         return returnPaths;
