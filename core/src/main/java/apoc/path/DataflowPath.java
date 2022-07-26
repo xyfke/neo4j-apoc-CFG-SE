@@ -29,8 +29,10 @@ public class DataflowPath {
     // define used relationship types
     private enum RelTypes implements RelationshipType
     {
-        varWrite, parWrite, vwSource, vwDestination, pwSource, pwDestination, nextCFGBlock,
-        pubVar, pubTarget;
+        varWrite, vwSource, vwDestination,
+        parWrite, pwSource, pwDestination,
+        retWrite, rwSource, rwDestination,
+        nextCFGBlock, pubVar, pubTarget;
     }
 
    /*
@@ -255,10 +257,9 @@ public class DataflowPath {
 
 
     @UserFunction
-    @Description("apoc.path.varParPath(start, end, cfgCheck, hasVW, hasPW) - finds a dataflow path consisting of varWrites/parWrites from one variable to another, hasVW and hasPW indicates whether or not to include or exclude VW or PW")
+    @Description("apoc.path.varParPath(start, end, isPrefix, cfgCheck) - finds a dataflow path consisting of varWrites/parWrites/retWrites from one variable to another")
     public Path varParPath(@Name("start") Node start, @Name("end") Node end, @Name("isPrefix") boolean isPrefix,
-                           @Name("cfgCheck") boolean cfgCheck,
-                           @Name("hasVW") boolean hasVW, @Name("hasPW") boolean hasPW) {
+                           @Name("cfgCheck") boolean cfgCheck) {
 
         // terminates path if not exist
         if ((start == null) || (end == null)) {
@@ -280,8 +281,7 @@ public class DataflowPath {
         PathImpl.Builder builder = new PathImpl.Builder(start);
         Iterable<Relationship> varWriteRels;
 
-        if (isPrefix) { varWriteRels = getNextRels(start, hasVW, false); }
-        else { varWriteRels = getNextRels(start, hasVW, hasPW); }
+        varWriteRels = getNextRels(start, isPrefix);
 
         // add the relationships connected to start node
         for (Relationship varWriteRel : varWriteRels) {
@@ -314,7 +314,7 @@ public class DataflowPath {
                 // then continue with the search
                 } else {
                     visitedNode.add(nextNode);
-                    varWriteRels = getNextRels(nextNode, hasVW, hasPW);
+                    varWriteRels = getNextRels(nextNode, false);
                     if (varWriteRels == null) {
                         continue;
                     }
@@ -350,7 +350,7 @@ public class DataflowPath {
                 }
 
                 // otherwise keep looking
-                varWriteRels = getNextRels(nextNode, hasVW, hasPW);
+                varWriteRels = getNextRels(nextNode, false);
                 if (varWriteRels == null) {
                     continue;
                 }
@@ -381,8 +381,6 @@ public class DataflowPath {
     @UserFunction
     @Description("apoc.path.getCFGPath(r1, r2)")
     public List<Relationship> getCFGPath(@Name("r1") Relationship r1, @Name("r2") Relationship r2) {
-
-
 
         if ((r1 == null) || (r2 == null)) {
             return null;
@@ -457,14 +455,12 @@ public class DataflowPath {
     }
 
     // return varWrite and/or parWrite edges directly connecting to start Node
-    public Iterable<Relationship> getNextRels(Node start, boolean hasVW, boolean hasPW) {
-        if (hasVW && hasPW) {
-            return start.getRelationships(Direction.OUTGOING, RelTypes.varWrite, RelTypes.parWrite);
-        } else if (hasVW) {
+    public Iterable<Relationship> getNextRels(Node start, boolean isPrefix) {
+        if (isPrefix) {
             return start.getRelationships(Direction.OUTGOING, RelTypes.varWrite);
-        } else if (hasPW) {
-            return start.getRelationships(Direction.OUTGOING, RelTypes.parWrite);
-        } else { return null; }
+        } else {
+            return start.getRelationships(Direction.OUTGOING, RelTypes.varWrite, RelTypes.parWrite, RelTypes.retWrite);
+        }
     }
 
     // merge two paths together
@@ -527,7 +523,7 @@ public class DataflowPath {
                     }
                 }
             }
-        } else {
+        } else if (r.isType(RelTypes.parWrite)) {
             Iterable<Relationship> srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
                     RelTypes.pwSource);
             Iterable<Relationship> dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
@@ -570,6 +566,46 @@ public class DataflowPath {
 
             }
 
+        } else if (r.isType(RelTypes.retWrite)) {
+            Iterable<Relationship> srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.rwSource);
+            Iterable<Relationship> dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.rwDestination);
+
+            // get common end nodes and store in vr1CFGConn
+            for (Relationship srcCFG : srcCFGs) {
+                Node srcCFGNode = srcCFG.getEndNode();
+                Iterable<Relationship> nextCFGRels = srcCFGNode.getRelationships(Direction.OUTGOING,
+                        RelTypes.nextCFGBlock);
+                HashMap<Node, Relationship> invokeCFGRel = new HashMap<>();
+
+                // filter out the invoke CFG nodes
+                for (Relationship nextCFGRel : nextCFGRels) {
+                    boolean hasProp = nextCFGRel.hasProperty("cfgReturn");
+                    if ((hasProp) && (nextCFGRel.getProperty("cfgReturn").equals("1"))) {
+                        invokeCFGRel.put(nextCFGRel.getEndNode(), nextCFGRel);
+                    }
+                }
+
+                // filter out nodes
+                for (Relationship dstCFG : dstCFGs) {
+                    Node dstCFGNode = dstCFG.getEndNode();
+                    Relationship invokeCFGConn = invokeCFGRel.get(dstCFGNode);
+                    if (invokeCFGConn != null) {
+                        ArrayList<Relationship> cfgConnRels = new ArrayList<Relationship>();
+                        cfgConnRels.add(srcCFG);
+                        cfgConnRels.add(dstCFG);
+                        cfgConnRels.add(invokeCFGConn);
+
+                        // determine node to return as key
+                        if (first) {
+                            allCFGConns.put(dstCFGNode, cfgConnRels);
+                        } else {
+                            allCFGConns.put(srcCFGNode, cfgConnRels);
+                        }
+                    }
+                }
+            }
         }
 
         return allCFGConns;
