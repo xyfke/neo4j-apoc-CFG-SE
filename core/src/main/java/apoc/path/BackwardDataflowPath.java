@@ -359,9 +359,11 @@ public class BackwardDataflowPath {
             }
         }
 
-        if ((curRels != null) && (curRels.size() > 0) &&
-                (curRels.get(curRels.size() - 1).getStartNode().equals(start)) && (cfgPath != null)) {
-            return backwardbuildPath(start, curRels);
+        if ((curRels != null) && (curRels.size() > 0)) {
+            Relationship firstRel = curRels.get(curRels.size() - 1);
+            if ((firstRel.getStartNode().equals(start)) && firstRel.isType(RelTypes.varWrite) && (cfgPath != null)) {
+                return backwardbuildPath(start, curRels);
+            }
         }
 
         return null;
