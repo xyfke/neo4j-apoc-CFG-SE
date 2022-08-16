@@ -1,5 +1,6 @@
 package apoc.path;
 
+import org.apache.commons.math3.geometry.spherical.twod.Edge;
 import org.apache.hadoop.thirdparty.org.checkerframework.checker.units.qual.A;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphalgo.GraphAlgoFactory;
@@ -32,6 +33,8 @@ public class DataflowPath {
         varWrite, vwSource, vwDestination,
         parWrite, pwSource, pwDestination,
         retWrite, rwSource, rwDestination,
+        varInfFunc, vifSource, vifDestination,
+        varInfluence, viSource, viDestination,
         nextCFGBlock, pubVar, pubTarget;
     }
 
@@ -258,37 +261,68 @@ public class DataflowPath {
 
     @UserFunction
     @Description("apoc.path.varParPath(start, end, isPrefix, cfgCheck) - finds a dataflow path consisting of varWrites/parWrites/retWrites from one variable to another")
-    public Path varParPath(@Name("start") Node start, @Name("end") Node end, @Name("isPrefix") boolean isPrefix,
+    public Path varParPath(@Name("startNode") Node startNode, @Name("endNode") Node endNode,
+                           @Name("startEdge") Relationship startEdge, @Name("endEdge") Relationship endEdge,
                            @Name("cfgCheck") boolean cfgCheck) {
 
-        // terminates path if not exist
-        if ((start == null) || (end == null)) {
-            return null;
-        }
-
-        if ((start.equals(end))) {
-            if (isPrefix) { return null; }
-            else { return buildPath(start, null); }
-        }
+        Node start;
+        Node end;
+        int category;
 
         // define needed variables
         HashSet<Node> visitedNode = new HashSet<Node>();
         Queue<ArrayList<Relationship>> queuePath = new LinkedList<>();
-        ArrayList<Relationship> curRels = null;
+        ArrayList<Relationship> curRels = new ArrayList<Relationship>();
+        Relationship vifEdge = null;
+        PathImpl.Builder builder;
 
-        // add start to visitedNode, and add relationships connected to start to queuePath
-        visitedNode.add(start);
-        PathImpl.Builder builder = new PathImpl.Builder(start);
+
+        if ((startNode != null) && (endNode != null)) {         // dataflow in middle component
+            start = startNode;
+            end = endNode;
+            category = 1;
+            builder = new PathImpl.Builder(startNode);
+        } else if ((startNode != null) && (endEdge != null)) {  // suffix
+            start = startNode;
+            end = endEdge.getStartNode();
+            vifEdge = endEdge;
+            category = 2;
+            builder = new PathImpl.Builder(startNode);
+        } else if ((startEdge != null) && (endNode != null)) {  // prefix
+            start = startEdge.getEndNode();
+            end = endNode;
+            curRels.add(startEdge);
+            queuePath.add(curRels);
+            visitedNode.add(startEdge.getStartNode());
+            category = 3;
+            builder = new PathImpl.Builder(startEdge.getStartNode());
+        } else {                                                // not valid
+            return null;
+        }
+
+        // terminates path if not exist
+        /**if ((start == null) || (end == null)) {
+            return null;
+        }**/
+
+        if ((start.equals(end))) {
+            if (vifEdge != null) {curRels.add(vifEdge); }
+            return buildPath(builder, curRels);
+        }
+
         Iterable<Relationship> varWriteRels;
 
-        varWriteRels = getNextRels(start, isPrefix);
+        // if it is not prefix, because we already have a starting edge for prefix, no need to look for the first
+        if (category != 3) {
+            varWriteRels = getNextRels(start, false);
 
-        // add the relationships connected to start node
-        for (Relationship varWriteRel : varWriteRels) {
-            if (!visitedNode.contains(varWriteRel.getEndNode())) {
-                ArrayList<Relationship> relList = new ArrayList<Relationship>();
-                relList.add(varWriteRel);
-                queuePath.add(relList);
+            // add the relationships connected to start node
+            for (Relationship varWriteRel : varWriteRels) {
+                if (!visitedNode.contains(varWriteRel.getEndNode())) {
+                    ArrayList<Relationship> relList = new ArrayList<Relationship>();
+                    relList.add(varWriteRel);
+                    queuePath.add(relList);
+                }
             }
         }
 
@@ -308,8 +342,10 @@ public class DataflowPath {
             if (curRels.size() == 1) {
                 // if end node matches and length of path is 1 then return path without verifying CFG
                 if (nextNode.equals(end)) {
-                    builder = builder.push(curRel);
-                    return builder.build();
+                    if ((cfgCheck && (getCFGPath(curRel, vifEdge) != null)) || (!cfgCheck)) {
+                        if (vifEdge != null) {curRels.add(vifEdge); }
+                        return buildPath(builder, curRels);
+                    }
                 // otherwise, add the relationship connected to the next node to the queue
                 // then continue with the search
                 } else {
@@ -346,7 +382,10 @@ public class DataflowPath {
 
                 // if the nextNode happens to be equal to end node, then we found the path
                 if (nextNode.equals(end)) {
-                    break;
+                    cfgPath = getCFGPath(curRel, vifEdge);
+                    if ((cfgCheck && (cfgPath != null)) || (!cfgCheck)) {
+                        break;
+                    } else { continue; }
                 }
 
                 // otherwise keep looking
@@ -369,7 +408,8 @@ public class DataflowPath {
         // only return path, if there exists one
         if ((curRels != null) && (curRels.size() > 0) &&
             (curRels.get(curRels.size()-1).getEndNode().equals(end)) && (cfgPath != null)) {
-            return buildPath(start, curRels);
+            if (vifEdge != null) {curRels.add(vifEdge); }
+            return buildPath(builder, curRels);
         }
         else {
             return null;
@@ -772,8 +812,12 @@ public class DataflowPath {
     @Description("apoc.path.getCFGPath(r1, r2)")
     public List<Relationship> getCFGPath(@Name("r1") Relationship r1, @Name("r2") Relationship r2) {
 
-        if ((r1 == null) || (r2 == null)) {
+        /**if ((r1 == null) || (r2 == null)) {
             return null;
+        }**/
+
+        if (r2 == null) {
+            return new ArrayList<Relationship>();
         }
 
         PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
@@ -875,6 +919,21 @@ public class DataflowPath {
         }
 
         PathImpl.Builder builder = new PathImpl.Builder(start);
+        if (listRels == null) {
+            return builder.build();
+        }
+
+        for (Relationship rel : listRels) {
+            builder = builder.push(rel);
+        }
+
+        return builder.build();
+
+    }
+
+    // create a new path with start as the first node, and joined by the edges in listRels
+    public Path buildPath(PathImpl.Builder builder, ArrayList<Relationship> listRels) {
+
         if (listRels == null) {
             return builder.build();
         }
@@ -996,6 +1055,46 @@ public class DataflowPath {
                     }
                 }
             }
+        } else if ((r.isType(RelTypes.varInfFunc)) || (r.isType(RelTypes.varInfluence))) {
+
+            Iterable<Relationship> srcCFGs;
+            Iterable<Relationship> dstCFGs;
+
+            if (r.isType(RelTypes.varInfFunc)) {
+                srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                        RelTypes.vifSource);
+                dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                        RelTypes.vifDestination);
+            } else {
+                srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                        RelTypes.viSource);
+                dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                        RelTypes.viDestination);
+            }
+
+            PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
+                    new BasicEvaluationContext(tx, db),
+                    buildPathExpander("nextCFGBlock>"), (int) Integer.MAX_VALUE
+            );
+
+            for (Relationship srcCFG : srcCFGs) {
+                for (Relationship dstCFG : dstCFGs) {
+                    Path vifCFG = algo.findSinglePath(srcCFG.getEndNode(), dstCFG.getEndNode());
+                    if (vifCFG != null) {
+                        ArrayList<Relationship> cfgConnRels = new ArrayList<Relationship>();
+                        cfgConnRels.add(srcCFG);
+                        cfgConnRels.add(dstCFG);
+                        for (Relationship vifRel : vifCFG.relationships()) {
+                            cfgConnRels.add(vifRel);
+                        }
+                        allCFGConns.put(srcCFG.getEndNode(), cfgConnRels);
+                    }
+                }
+            }
+
+
+
+
         }
 
         return allCFGConns;
