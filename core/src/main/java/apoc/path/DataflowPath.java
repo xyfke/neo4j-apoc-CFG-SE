@@ -300,10 +300,7 @@ public class DataflowPath {
             return null;
         }
 
-        // terminates path if not exist
-        /**if ((start == null) || (end == null)) {
-            return null;
-        }**/
+        visitedNode.add(start);
 
         if ((start.equals(end))) {
             if (vifEdge != null) {curRels.add(vifEdge); }
