@@ -49,8 +49,8 @@ This is a fork version of the original https://github.com/neo4j-contrib/neo4j-ap
 
 In our forked version of APOC, we included a new file https://github.com/xyfke/neo4j-apoc-CFG-SE/blob/4.4/core/src/main/java/apoc/path/DataflowPath.java[/core/src/main/java/apoc/path/Dataflow.java] to help construct the dataflow paths in behaviour alteration and publisher alteration queries. Specifically, it verifies the feasibility of the CFG paths on the fly as it construct the varWrite and parWrite paths. 
 
-The key function that we use is: `apoc.path.varParPath(start, end, cfgCheck, hasVW, hasPW)`  
-This function returns a varWrite/parWrite path from the `start` variable to the `end` variable using a BFS (Breath First Search) cfg feasibility embedded algorithm. More details can be seen in the Dataflow file.
+The key function that we use is: `apoc.path.dataflowPath(startNode, endNode, startEdge, endEdge, cfgCheck)`  
+This function returns a dataflow path from the `start` variable to the `end` variable using a BFS (Breath First Search) cfg feasibility embedded algorithm. More details can be seen in the Dataflow file.
 
 === Debugging with IntelliJ
 I use IntelliJ as my IDE and connect it to a running neo4j instance with remote debugging to test and debug my code. Basically, the only thing needed is to connect add Java debug parameter to the Neo4J configuration file and setup Remote JVM Debug with the same parameter in the command line argument. Reference for setup https://neo4j.com/docs/java-reference/current/extending-neo4j/server-debugging/[Remote Debugging].
