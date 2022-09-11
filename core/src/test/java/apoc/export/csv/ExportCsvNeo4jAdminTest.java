@@ -2,12 +2,13 @@ package apoc.export.csv;
 
 import apoc.ApocSettings;
 import apoc.graph.Graphs;
+import apoc.util.BinaryTestUtil;
+import apoc.util.CompressionAlgo;
 import apoc.util.TestUtil;
 import apoc.util.Util;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.internal.helpers.collection.Iterators;
@@ -15,14 +16,14 @@ import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static apoc.util.CompressionAlgo.GZIP;
 import static apoc.util.MapUtil.map;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
@@ -72,6 +73,8 @@ public class ExportCsvNeo4jAdminTest {
 
     private static final String EXPECTED_NEO4J_ADMIN_IMPORT_RELATIONSHIP_NEXT_DELIVERY = String
             .format("3;4;NEXT_DELIVERY%n");
+    
+    private static final String GZIP_EXT = ".foo";
 
     private static File directory = new File("target/import");
 
@@ -79,13 +82,13 @@ public class ExportCsvNeo4jAdminTest {
         directory.mkdirs();
     }
 
-    @ClassRule
-    public static DbmsRule db = new ImpermanentDbmsRule()
+    @Rule
+    public DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath())
             .withSetting(ApocSettings.apoc_export_file_enabled, true);
 
-    @BeforeClass
-    public static void setUp() throws Exception {
+    @Before
+    public void before() throws Exception {
         TestUtil.registerProcedure(db, ExportCSV.class, Graphs.class);
         db.executeTransactionally("CREATE (f:User1:User {name:'foo',age:42,male:true,kids:['a','b','c']})-[:KNOWS]->(b:User {name:'bar',age:42}),(c:User {age:12})");
         db.executeTransactionally("CREATE (f:Address1:Address {name:'Andrea', city: 'Milano', street:'Via Garibaldi, 7'})-[:NEXT_DELIVERY]->(a:Address {name: 'Bar Sport'}), (b:Address {street: 'via Benni'})");
@@ -93,13 +96,55 @@ public class ExportCsvNeo4jAdminTest {
     }
 
     @Test
-    public void testCypherExportCsvForAdminNeo4jImportWithConfig() throws Exception {
+    public void testCypherExportCsvForAdminNeo4jImportWithCompressionNone() {
+        String fileBaseName = "query_nodes_no_compress_and_Ext";
+        String fileExpectedExt = ".csv";
+        assertionTestExportForAdminNeo4jImport(CompressionAlgo.NONE, fileBaseName, fileExpectedExt);
+    }
 
-        String fileName = "query_nodes.csv";
+    @Test
+    public void testCypherExportCsvForAdminNeo4jImportWithCompressionNoneWithoutExtension() {
+        String fileBaseName = "query_nodes_no_compress";
+        assertionTestExportForAdminNeo4jImport(CompressionAlgo.NONE, fileBaseName, "");
+    }
+
+    @Test
+    public void testCypherExportCsvForAdminNeo4jImportWithCompressionNoneAndMultiDotInName() {
+        String fileBaseName = "query_nodes.dots.in";
+        String fileExpectedExt = ".name";
+        assertionTestExportForAdminNeo4jImport(CompressionAlgo.NONE, fileBaseName, fileExpectedExt);
+    }
+    
+    @Test
+    public void testCypherExportCsvForAdminNeo4jImportWithConfigWithCompression() {
+        String fileBaseName = "query_nodes_with_csvgz_ext.csv";
+        assertionTestExportForAdminNeo4jImport(GZIP, fileBaseName, GZIP_EXT);
+    }
+    
+    @Test
+    public void testCypherExportCsvForAdminNeo4jImportWithCompressionAndWithoutExtension() {
+        String fileBaseName = "query_nodes_with_ext";
+        assertionTestExportForAdminNeo4jImport(GZIP, fileBaseName, GZIP_EXT);
+    }
+    
+    @Test
+    public void testCypherExportCsvForAdminNeo4jImportWithCompressionAndWithoutAnyExtension() {
+        String fileBaseName = "query_nodes_with_no_ext";
+        assertionTestExportForAdminNeo4jImport(GZIP, fileBaseName, "");
+    }
+
+    @Test
+    public void testCypherExportCsvForAdminNeo4jImportWithCompressionAndWithoutExtensionAndMultiDotInName() {
+        String fileBaseName = "query_nodes_with_ext.dots.name";
+        assertionTestExportForAdminNeo4jImport(GZIP, fileBaseName, GZIP_EXT);
+    }
+
+    private void assertionTestExportForAdminNeo4jImport(CompressionAlgo algo, String fileBaseName, String fileExpectedExt) {
+        final String fileName = fileBaseName + fileExpectedExt;
         File dir = new File(directory, fileName);
 
-        TestUtil.testCall(db, "CALL apoc.export.csv.all($fileName,{bulkImport: true, separateHeader: true, delim: ';'})",
-                map("fileName", fileName), r -> {
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($fileName,{compression: $compression, bulkImport: true, separateHeader: true, delim: ';'})",
+                map("fileName", fileName, "compression", algo.name()), r -> {
                     assertEquals(20000L, r.get("batchSize"));
                     assertEquals(1L, r.get("batches"));
                     assertEquals(7L, r.get("nodes"));
@@ -112,25 +157,39 @@ public class ExportCsvNeo4jAdminTest {
         );
 
         String file = dir.getParent() + File.separator;
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_ADDRESS, "query_nodes.header.nodes.Address.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_ADDRESS1, "query_nodes.header.nodes.Address1.Address.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_USER, "query_nodes.header.nodes.User.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_USER1, "query_nodes.header.nodes.User1.User.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_TYPES_NODE, "query_nodes.header.nodes.Types.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_RELATIONSHIP_KNOWS, "query_nodes.header.relationships.KNOWS.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_RELATIONSHIP_NEXT_DELIVERY, "query_nodes.header.relationships.NEXT_DELIVERY.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_NODE_ADDRESS, "query_nodes.nodes.Address.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_NODE_ADDRESS1, "query_nodes.nodes.Address1.Address.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_NODE_USER, "query_nodes.nodes.User.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_NODE_USER1, "query_nodes.nodes.User1.User.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_TYPES_NODE, "query_nodes.nodes.Types.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_RELATIONSHIP_KNOWS, "query_nodes.relationships.KNOWS.csv");
-        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_RELATIONSHIP_NEXT_DELIVERY, "query_nodes.relationships.NEXT_DELIVERY.csv");
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_ADDRESS, fileBaseName + ".header.nodes.Address" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_ADDRESS1, fileBaseName + ".header.nodes.Address1.Address" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_USER, fileBaseName + ".header.nodes.User" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_USER1, fileBaseName + ".header.nodes.User1.User" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_TYPES_NODE, fileBaseName + ".header.nodes.Types" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_RELATIONSHIP_KNOWS, fileBaseName + ".header.relationships.KNOWS" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_RELATIONSHIP_NEXT_DELIVERY, fileBaseName + ".header.relationships.NEXT_DELIVERY" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_NODE_ADDRESS, fileBaseName + ".nodes.Address" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_NODE_ADDRESS1, fileBaseName + ".nodes.Address1.Address" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_NODE_USER, fileBaseName + ".nodes.User" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_NODE_USER1, fileBaseName + ".nodes.User1.User" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_TYPES_NODE, fileBaseName + ".nodes.Types" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_RELATIONSHIP_KNOWS, fileBaseName + ".relationships.KNOWS" + fileExpectedExt,  algo);
+        assertFileEquals(file, EXPECTED_NEO4J_ADMIN_IMPORT_RELATIONSHIP_NEXT_DELIVERY, fileBaseName + ".relationships.NEXT_DELIVERY" + fileExpectedExt,  algo);
     }
 
     @Test
-    public void testExportGraphNeo4jAdminCsv() throws Exception {
-        String fileName = "graph.csv";
+    public void testExportGraphNeo4jAdminCsvWithoutFileExt() {
+        testExportGraphNeo4jAdminCsvCommon("graph_with_no_ext", "");
+    }
+
+    @Test
+    public void testExportGraphNeo4jAdminCsvWithFileExt() {
+        testExportGraphNeo4jAdminCsvCommon("graph", ".csv");
+    }
+
+    @Test
+    public void testExportGraphNeo4jAdminCsvWithFileExtMultiDotInName() {
+        testExportGraphNeo4jAdminCsvCommon("graph.multi.dots.name.file", ".csv");
+    }
+
+    private void testExportGraphNeo4jAdminCsvCommon(String fileBaseName, String fileExpectedExt) {
+        final String fileName = fileBaseName + fileExpectedExt;
         File output = new File(directory, fileName);
         String separator = ";";
         TestUtil.testCall(db, "CALL apoc.graph.fromDB('test',{}) yield graph " +
@@ -140,32 +199,32 @@ public class ExportCsvNeo4jAdminTest {
                 (r) -> assertResults(fileName, r, "graph"));
 
         String file = output.getParent() + File.separator;
-        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_ADDRESS + EXPECTED_NEO4J_ADMIN_IMPORT_NODE_ADDRESS, "graph.nodes.Address.csv", separator);
-        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_ADDRESS1 + EXPECTED_NEO4J_ADMIN_IMPORT_NODE_ADDRESS1, "graph.nodes.Address1.Address.csv", separator);
-        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_USER + EXPECTED_NEO4J_ADMIN_IMPORT_NODE_USER, "graph.nodes.User.csv", separator);
-        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_USER1 + EXPECTED_NEO4J_ADMIN_IMPORT_NODE_USER1, "graph.nodes.User1.User.csv", separator);
-        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_TYPES_NODE + EXPECTED_NEO4J_ADMIN_IMPORT_TYPES_NODE, "graph.nodes.Types.csv", separator);
-        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_RELATIONSHIP_KNOWS + EXPECTED_NEO4J_ADMIN_IMPORT_RELATIONSHIP_KNOWS, "graph.relationships.KNOWS.csv", separator);
-        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_RELATIONSHIP_NEXT_DELIVERY + EXPECTED_NEO4J_ADMIN_IMPORT_RELATIONSHIP_NEXT_DELIVERY, "graph.relationships.NEXT_DELIVERY.csv", separator);
+        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_ADDRESS + EXPECTED_NEO4J_ADMIN_IMPORT_NODE_ADDRESS, fileBaseName + ".nodes.Address" + fileExpectedExt, separator);
+        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_ADDRESS1 + EXPECTED_NEO4J_ADMIN_IMPORT_NODE_ADDRESS1, fileBaseName + ".nodes.Address1.Address" + fileExpectedExt, separator);
+        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_USER + EXPECTED_NEO4J_ADMIN_IMPORT_NODE_USER, fileBaseName + ".nodes.User" + fileExpectedExt, separator);
+        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_USER1 + EXPECTED_NEO4J_ADMIN_IMPORT_NODE_USER1, fileBaseName + ".nodes.User1.User" + fileExpectedExt, separator);
+        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_TYPES_NODE + EXPECTED_NEO4J_ADMIN_IMPORT_TYPES_NODE, fileBaseName + ".nodes.Types" + fileExpectedExt, separator);
+        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_RELATIONSHIP_KNOWS + EXPECTED_NEO4J_ADMIN_IMPORT_RELATIONSHIP_KNOWS, fileBaseName + ".relationships.KNOWS" + fileExpectedExt, separator);
+        assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_RELATIONSHIP_NEXT_DELIVERY + EXPECTED_NEO4J_ADMIN_IMPORT_RELATIONSHIP_NEXT_DELIVERY, fileBaseName + ".relationships.NEXT_DELIVERY" + fileExpectedExt, separator);
     }
 
     private void assertFileEquals(String base, String expected, String file) {
-        assertFileEquals(base, expected, file, ",");
+        assertFileEquals(base, expected, file, ",",  CompressionAlgo.NONE);
+    }
+
+    private void assertFileEquals(String base, String expected, String file, CompressionAlgo algo) {
+        assertFileEquals(base, expected, file, ",",  algo);
     }
 
     private void assertFileEquals(String base, String expected, String file, String separator) {
-        try {
-            final List<Map<String, Object>> expectedList = convertCSVString(expected, separator);
-            final String actual = FileUtils.readFileToString(new File(base + file), Charset.forName("UTF-8"));
-            final List<Map<String, Object>> actualList = convertCSVString(actual, separator);
-            assertEquals(expectedList, actualList);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        assertFileEquals(base, expected, file, separator,  CompressionAlgo.NONE);
     }
 
-    private List<Map<String, Object>> convertCSVString(String csv) {
-        return convertCSVString(csv, ",");
+    private void assertFileEquals(String base, String expected, String file, String separator, CompressionAlgo algo) {
+        final List<Map<String, Object>> expectedList = convertCSVString(expected, separator);
+        final String actual = BinaryTestUtil.readFileToString(new File(base + file), StandardCharsets.UTF_8, algo);
+        final List<Map<String, Object>> actualList = convertCSVString(actual, separator);
+        assertEquals(expectedList, actualList);
     }
 
     private List<Map<String, Object>> convertCSVString(String csv, String separator) {

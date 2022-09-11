@@ -4,11 +4,9 @@ import apoc.ApocConfig;
 import apoc.Pools;
 import apoc.convert.Convert;
 import apoc.export.util.CountingInputStream;
+import apoc.export.util.ExportConfig;
 import apoc.result.VirtualNode;
 import apoc.result.VirtualRelationship;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.collections.api.iterator.LongIterator;
@@ -31,6 +29,7 @@ import org.neo4j.internal.kernel.api.procs.ProcedureCallContext;
 import org.neo4j.internal.kernel.api.security.SecurityContext;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
+import org.neo4j.logging.NullLog;
 import org.neo4j.procedure.TerminationGuard;
 import org.neo4j.values.storable.CoordinateReferenceSystem;
 import org.neo4j.values.storable.PointValue;
@@ -42,6 +41,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
+import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigInteger;
@@ -67,6 +67,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -82,6 +83,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
@@ -376,7 +379,7 @@ public class Util {
             }
 
             StreamConnection sc = getStreamConnection(urlAddress, headers, payload);
-            return sc.toCountingInputStream();
+            return sc.toCountingInputStream(compressionAlgo);
         } else if (input instanceof byte[]) {
             return FileUtils.getInputStreamFromBinary((byte[]) input, compressionAlgo);
         } else {
@@ -672,6 +675,100 @@ public class Util {
         return quote(var.replaceAll("`", ""));
     }
 
+    private static final String ESCAPED_UNICODE_BACKTICK = "\\u0060";
+
+    private static final Pattern PATTERN_ESCAPED_4DIGIT_UNICODE = Pattern.compile("\\\\u+(\\p{XDigit}{4})");
+    private static final Pattern PATTERN_LABEL_AND_TYPE_QUOTATION = Pattern.compile("(?<!`)`(?:`{2})*(?!`)");
+
+    private static final List<String[]> SUPPORTED_ESCAPE_CHARS = Collections.unmodifiableList(Arrays.asList(
+            new String[] { "\\b", "\b" },
+            new String[] { "\\f", "\f" },
+            new String[] { "\\n", "\n" },
+            new String[] { "\\r", "\r" },
+            new String[] { "\\t", "\t" },
+            new String[] { "\\`", "``" }
+    ));
+
+
+    /**
+     * Sanitizes the given input to be used as a valid schema name
+     *
+     * @param value The value to sanitize
+     * @return A value that is safe to be used in string concatenation, an empty optional indicates a value that cannot be safely quoted
+     */
+    public static String sanitize(String value) {
+        return sanitize(value, false);
+    }
+
+    /**
+     * Sanitizes the given input to be used as a valid schema name
+     *
+     * @param value The value to sanitize
+     * @param addQuotes If quotation should be added
+     * @return A value that is safe to be used in string concatenation, an empty optional indicates a value that cannot be safely quoted
+     */
+    public static String sanitize(String value, boolean addQuotes) {
+        if (value == null || value.isEmpty()) {
+            return value;
+        }
+
+        // Replace escaped chars
+        for (String[] pair : SUPPORTED_ESCAPE_CHARS) {
+            value = value.replace(pair[0], pair[1]);
+        }
+        value = value.replace(ESCAPED_UNICODE_BACKTICK, "`");
+
+        // Replace escaped octal hex
+        // Excluding the support for 6 digit literals, as this contradicts the overall example in CIP-59r
+        Matcher matcher = PATTERN_ESCAPED_4DIGIT_UNICODE.matcher(value);
+        StringBuffer sb = new StringBuffer();
+        while (matcher.find()) {
+            String replacement = Character.toString((char) Integer.parseInt(matcher.group(1), 16));
+            matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+        }
+
+        matcher.appendTail(sb);
+        value = sb.toString();
+
+        value = value.replace("\\u", "\\u005C\\u0075");
+
+        matcher = PATTERN_LABEL_AND_TYPE_QUOTATION.matcher(value);
+        value = matcher.replaceAll("`$0");
+        value = value.replace("\\\\", "\\");
+
+        if (!addQuotes) {
+            return value;
+        }
+
+        return String.format(Locale.ENGLISH, "`%s`", value);
+    }
+
+    /**
+     * This is a literal copy of {@code javax.lang.model.SourceVersion#isIdentifier(CharSequence)} included here to
+     * be not dependent on the compiler module.
+     *
+     * @param name A possible Java identifier
+     * @return True, if {@code name} represents an identifier.
+     */
+    public static boolean isIdentifier(CharSequence name) {
+        String id = name.toString();
+
+        if (id.length() == 0) {
+            return false;
+        }
+        int cp = id.codePointAt(0);
+        if (!Character.isJavaIdentifierStart(cp)) {
+            return false;
+        }
+        for (int i = Character.charCount(cp); i < id.length(); i += Character.charCount(cp)) {
+            cp = id.codePointAt(i);
+            if (!Character.isJavaIdentifierPart(cp)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static String param(String var) {
         return var.charAt(0) == '$' ? var : '$'+quote(var);
     }
@@ -733,13 +830,13 @@ public class Util {
         }
     }
 
-    public static void close(AutoCloseable closeable, Consumer<Exception> onErrror) {
+    public static void close(AutoCloseable closeable, Consumer<Exception> onError) {
         try {
             if (closeable!=null) closeable.close();
         } catch (Exception e) {
-            // ignore
-            if (onErrror != null) {
-                onErrror.accept(e);
+            // Consume the exception if requested, else ignore
+            if (onError != null) {
+                onError.accept(e);
             }
         }
     }
@@ -818,7 +915,7 @@ public class Util {
         if ("TAB".equals(separator)) {
             return '\t';
         }
-        // "NONE" is used to resolve cases like issue #1376. 
+        // "NONE" is used to resolve cases like issue #1376.
         // That is, when I have a line like "VER: AX\GEARBOX\ASSEMBLY" and I don't want to convert it in "VER: AXGEARBOXASSEMBLY"
         if ("NONE".equals(separator)) {
             return '\0';
@@ -955,7 +1052,7 @@ public class Util {
     public static boolean isSelfRel(Relationship rel) {
         return rel.getStartNodeId() == rel.getEndNodeId();
     }
-    
+
     public static PointValue toPoint(Map<String, Object> pointMap, Map<String, Object> defaultPointMap) {
         double x;
         double y;
@@ -982,13 +1079,32 @@ public class Util {
 
         return z != null ? Values.pointValue(crs, x, y, z) : Values.pointValue(crs, x, y);
     }
-    
+
     private static Object getOrDefault(Map<String, Object> firstMap, Map<String, Object> secondMap, String key) {
         return firstMap.getOrDefault(key, secondMap.get(key));
+    }
+
+    public static Object getStringOrCompressedData(StringWriter writer, ExportConfig config) {
+        try {
+            final String compression = config.getCompressionAlgo();
+            final String writerString = writer.toString();
+            Object data = compression.equals(CompressionAlgo.NONE.name())
+                    ? writerString
+                    : CompressionAlgo.valueOf(compression).compress(writerString, config.getCharset());
+            writer.getBuffer().setLength(0);
+            return data;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static String toCypherMap(Map<String, Object> map) {
         final StringBuilder builder = formatProperties(map);
         return "{" + formatToString(builder) + "}";
+    }
+
+    public static <T extends Entity> T withTransactionAndRebind(GraphDatabaseService db, Transaction transaction, Function<Transaction, T> action) {
+        T result = retryInTx(NullLog.getInstance(), db, action, 0, 0, r -> {});
+        return rebind(transaction, result);
     }
 }

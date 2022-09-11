@@ -2,8 +2,8 @@ package apoc.export.csv;
 
 import apoc.util.CompressionAlgo;
 import apoc.util.CompressionConfig;
+import apoc.util.Util;
 
-import java.nio.charset.Charset;
 import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -22,6 +22,7 @@ public class CsvLoaderConfig extends CompressionConfig {
     private static final String BATCH_SIZE = "batchSize";
     private static final String IGNORE_DUPLICATE_NODES = "ignoreDuplicateNodes";
     private static final String IGNORE_BLANK_STRING = "ignoreBlankString";
+    private static final String IGNORE_EMPTY_CELL_ARRAY = "ignoreEmptyCellArray";
 
     private static char DELIMITER_DEFAULT = ',';
     private static char ARRAY_DELIMITER_DEFAULT = ';';
@@ -31,6 +32,7 @@ public class CsvLoaderConfig extends CompressionConfig {
     private static int BATCH_SIZE_DEFAULT = 2000;
     private static boolean IGNORE_DUPLICATE_NODES_DEFAULT = false;
     private static boolean IGNORE_BLANK_STRING_DEFAULT = false;
+    private static boolean IGNORE_EMPTY_CELL_ARRAY_DEFAULT = false;
 
     private final char delimiter;
     private final char arrayDelimiter;
@@ -40,6 +42,7 @@ public class CsvLoaderConfig extends CompressionConfig {
     private final int batchSize;
     private final boolean ignoreDuplicateNodes;
     private final boolean ignoreBlankString;
+    private final boolean ignoreEmptyCellArray;
 
     private CsvLoaderConfig(Builder builder) {
         super(Map.of(COMPRESSION, builder.compressionAlgo, CHARSET, builder.charset));
@@ -51,6 +54,7 @@ public class CsvLoaderConfig extends CompressionConfig {
         this.batchSize = builder.batchSize;
         this.ignoreDuplicateNodes = builder.ignoreDuplicateNodes;
         this.ignoreBlankString = builder.ignoreBlankString;
+        this.ignoreEmptyCellArray = builder.ignoreEmptyCellArray;
     }
 
     public char getDelimiter() {
@@ -81,6 +85,10 @@ public class CsvLoaderConfig extends CompressionConfig {
 
     public boolean isIgnoreBlankString() {
         return ignoreBlankString;
+    }
+
+    public boolean isIgnoreEmptyCellArray() {
+        return ignoreEmptyCellArray;
     }
 
     /**
@@ -114,11 +122,12 @@ public class CsvLoaderConfig extends CompressionConfig {
         if (config.get(ARRAY_DELIMITER) != null) builder.arrayDelimiter(getCharacterOrString(config, ARRAY_DELIMITER));
         if (config.get(QUOTATION_CHARACTER) != null) builder.quotationCharacter(getCharacterOrString(config, QUOTATION_CHARACTER));
         if (config.get(STRING_IDS) != null) builder.stringIds((boolean) config.get(STRING_IDS));
-        if (config.get(SKIP_LINES) != null) builder.skipLines((int) config.get(SKIP_LINES));
-        if (config.get(BATCH_SIZE) != null) builder.batchSize((int) config.get(BATCH_SIZE));
+        if (config.get(SKIP_LINES) != null) builder.skipLines(Util.toInteger(config.get(SKIP_LINES)));
+        if (config.get(BATCH_SIZE) != null) builder.batchSize(Util.toInteger(config.get(BATCH_SIZE)));
         if (config.get(IGNORE_DUPLICATE_NODES) != null) builder.ignoreDuplicateNodes((boolean) config.get(IGNORE_DUPLICATE_NODES));
         if (config.get(IGNORE_BLANK_STRING) != null) builder.ignoreBlankString((boolean) config.get(IGNORE_BLANK_STRING));
-        builder.binary((String) config.getOrDefault(COMPRESSION, CompressionAlgo.GZIP.name()));
+        if (config.get(IGNORE_EMPTY_CELL_ARRAY) != null) builder.ignoreEmptyCellArray((boolean) config.get(IGNORE_EMPTY_CELL_ARRAY));
+        builder.binary((String) config.getOrDefault(COMPRESSION, CompressionAlgo.NONE.name()));
         builder.charset((String) config.getOrDefault(CHARSET, UTF_8.name()));
         
         return builder.build();
@@ -136,6 +145,7 @@ public class CsvLoaderConfig extends CompressionConfig {
         private int batchSize = BATCH_SIZE_DEFAULT;
         private boolean ignoreDuplicateNodes = IGNORE_DUPLICATE_NODES_DEFAULT;
         private boolean ignoreBlankString = IGNORE_BLANK_STRING_DEFAULT;
+        private boolean ignoreEmptyCellArray = IGNORE_EMPTY_CELL_ARRAY_DEFAULT;
         private String compressionAlgo = null;
         private String charset = UTF_8.name();
 
@@ -189,6 +199,11 @@ public class CsvLoaderConfig extends CompressionConfig {
 
         public Builder ignoreBlankString(boolean ignoreBlankString) {
             this.ignoreBlankString = ignoreBlankString;
+            return this;
+        }
+
+        public Builder ignoreEmptyCellArray(boolean ignoreArrayEmptyCell) {
+            this.ignoreEmptyCellArray = ignoreArrayEmptyCell;
             return this;
         }
 

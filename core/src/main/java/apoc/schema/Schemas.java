@@ -1,9 +1,9 @@
 package apoc.schema;
 
-import apoc.Pools;
 import apoc.result.AssertSchemaResult;
 import apoc.result.IndexConstraintNodeInfo;
 import apoc.result.IndexConstraintRelationshipInfo;
+import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.common.EntityType;
 import org.neo4j.common.TokenNameLookup;
@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
@@ -156,9 +157,9 @@ public class Schemas {
 
     private AssertSchemaResult createNodeKeyConstraint(String lbl, List<Object> keys) {
         String keyProperties = keys.stream()
-                .map( property -> String.format("n.`%s`", property))
+                .map( property -> String.format("n.`%s`", Util.sanitize(property.toString())))
                 .collect( Collectors.joining( "," ) );
-        tx.execute(String.format("CREATE CONSTRAINT ON (n:`%s`) ASSERT (%s) IS NODE KEY", lbl, keyProperties)).close();
+        tx.execute(String.format("CREATE CONSTRAINT ON (n:`%s`) ASSERT (%s) IS NODE KEY", Util.sanitize(lbl), keyProperties)).close();
         List<String> keysToSting = keys.stream().map(Object::toString).collect(Collectors.toList());
         return new AssertSchemaResult(lbl, keysToSting).unique().created();
     }
@@ -186,16 +187,21 @@ public class Schemas {
             definition.getPropertyKeys().forEach(keys::add);
 
             AssertSchemaResult info = new AssertSchemaResult(label, keys);
-            if(indexes.containsKey(label)) {
-                if (keys.size() > 1) {
-                    indexes.get(label).remove(keys);
-                } else if (keys.size() == 1) {
-                    indexes.get(label).remove(keys.get(0));
-                } else
-                    throw new IllegalArgumentException("Label given with no keys.");
-            }
 
-            if (dropExisting) {
+            final boolean included = Optional.ofNullable(indexes.get(label))
+                    .map(lbl -> {
+                        if (keys.size() > 1) {
+                            return lbl.remove(keys);
+                        }
+                        if (keys.size() == 1) {
+                            return lbl.remove(keys.get(0));
+                        }
+                        // todo - it shouldn't be needed. only LOOKUP indexes, absent in 4.2 and previous and filtered for 4.3+, can be without keys
+                        throw new IllegalArgumentException("Label given with no keys.");
+                    })
+                    .orElse(false);
+
+            if (dropExisting && !included) {
                 definition.drop();
                 info.dropped();
             }
@@ -203,8 +209,6 @@ public class Schemas {
             result.add(info);
         }
 
-        if (dropExisting)
-            indexes = copyMapOfObjects(indexes0);
 
         for (Map.Entry<String, List<Object>> index : indexes.entrySet()) {
             for (Object key : index.getValue()) {
@@ -225,9 +229,9 @@ public class Schemas {
 
     private AssertSchemaResult createCompoundIndex(String label, List<String> keys) {
         List<String> backTickedKeys = new ArrayList<>();
-        keys.forEach(key->backTickedKeys.add(String.format("`%s`", key)));
+        keys.forEach(key->backTickedKeys.add(String.format("`%s`", Util.sanitize(key))));
 
-        tx.execute(String.format("CREATE INDEX ON :`%s` (%s)", label, String.join(",", backTickedKeys))).close();
+        tx.execute(String.format("CREATE INDEX ON :`%s` (%s)", Util.sanitize(label), String.join(",", backTickedKeys))).close();
         return new AssertSchemaResult(label, keys).created();
     }
 
@@ -415,7 +419,7 @@ public class Schemas {
             Iterable<ConstraintDefinition> constraintsIterator;
             Iterable<IndexDescriptor> indexesIterator;
 
-            final Predicate<ConstraintDefinition> isRelConstraint = constraintDefinition -> 
+            final Predicate<ConstraintDefinition> isRelConstraint = constraintDefinition ->
                     constraintDefinition.isConstraintType(ConstraintType.RELATIONSHIP_PROPERTY_EXISTENCE);
             if(!includeRelationships.isEmpty()) {
                 constraintsIterator = includeRelationships.stream()

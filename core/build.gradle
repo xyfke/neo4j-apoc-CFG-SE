@@ -4,6 +4,14 @@ plugins {
     id 'maven-publish'
     id 'antlr'
     id "org.sonarqube"
+    id "com.diffplug.spotless" version "6.7.2"
+}
+
+spotless {
+    java {
+        target 'src/*/java/**/*.java'
+        removeUnusedImports()
+    }
 }
 
 archivesBaseName = "apoc"
@@ -42,6 +50,7 @@ dependencies {
 
     apt group: 'org.neo4j', name: 'neo4j', version: neo4jVersionEffective
     compile group: 'commons-codec', name: 'commons-codec', version: '1.14'
+    // when json-path is changed, it have to be changed in json-path-version version in antora.yml as well.
     compile group: 'com.jayway.jsonpath', name: 'json-path', version: '2.7.0'
     compile group: 'net.minidev', name: 'json-smart', version: '2.4.8'
     compile group: 'org.hdrhistogram', name: 'HdrHistogram', version: '2.1.9'
@@ -55,9 +64,17 @@ dependencies {
     // testCompile "org.antlr:antlr4-runtime:4.7.2"
 
     compile group: 'org.roaringbitmap', name: 'RoaringBitmap', version: '0.7.17'
-    compile(group: 'org.apache.commons', name: 'commons-configuration2', version: '2.7') {
+    compile(group: 'org.apache.commons', name: 'commons-configuration2', version: '2.8.0') {
         exclude group: "org.yaml"
         exclude module: "snakeyaml"
+        exclude module: "commons-lang3"
+    }
+
+    // This was reported here https://github.com/neo4j-contrib/neo4j-apoc-procedures/issues/3048
+    compile(group: 'org.apache.commons', name: 'commons-lang3') {
+        version {
+            strictly '3.12.0'
+        }
     }
     compile group: 'org.yaml', name: 'snakeyaml', version: '1.26'
     compile group: 'com.github.seancfoley', name: 'ipaddress', version: '5.3.3'
@@ -89,14 +106,19 @@ dependencies {
         exclude group: 'org.eclipse.jetty.aggregate'
         exclude group: 'org.apache.hive', module: 'hive-service'
     }
+    
+    def withoutJacksons = {
+        exclude group: 'com.fasterxml.jackson.core', module: 'jackson-annotations'
+        exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
+    }
 
     compileOnly group: 'org.neo4j', name: 'neo4j', version: neo4jVersionEffective
 
     testCompile 'org.mock-server:mockserver-netty:5.6.0'
     testCompile 'org.mock-server:mockserver-client-java:5.6.0'
 
-    compileOnly group: 'com.amazonaws', name: 'aws-java-sdk-comprehend', version: '1.11.683'
-    testImplementation group: 'com.amazonaws', name: 'aws-java-sdk-comprehend', version: '1.11.683'
+    compileOnly group: 'com.amazonaws', name: 'aws-java-sdk-comprehend', version: '1.12.214' , withoutJacksons
+    testImplementation group: 'com.amazonaws', name: 'aws-java-sdk-comprehend', version: '1.12.214' , withoutJacksons
 
     compile group: 'com.opencsv', name: 'opencsv', version: '4.6'
     compile group: 'commons-beanutils', name: 'commons-beanutils', version: '1.9.4'
@@ -104,8 +126,8 @@ dependencies {
 
     testCompile group: 'org.apache.hive', name: 'hive-jdbc', version: '1.2.2', withoutServers
 
-    compileOnly group: 'org.apache.hadoop', name: 'hadoop-hdfs', version: '3.3.1', withoutServers
-    compileOnly group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.3.1', withoutServers
+    compileOnly group: 'org.apache.hadoop', name: 'hadoop-hdfs', version: '3.3.2', withoutServers
+    compileOnly group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.3.2', withoutServers
 
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     // explicit update comomns.io version
@@ -122,8 +144,8 @@ dependencies {
     testCompile group: 'org.skyscreamer', name: 'jsonassert', version: '1.5.0'
     testCompile group: 'org.assertj', name: 'assertj-core', version: '3.13.2'
 
-    compileOnly group: 'com.google.cloud', name: 'google-cloud-storage', version: '1.92.0'
-    testCompile group: 'com.google.cloud', name: 'google-cloud-storage', version: '1.92.0', {
+    compileOnly group: 'com.google.cloud', name: 'google-cloud-storage', version: '2.6.1'
+    testCompile group: 'com.google.cloud', name: 'google-cloud-storage', version: '2.6.1', {
         exclude group: 'com.google.guava', module: 'guava'
     }
 

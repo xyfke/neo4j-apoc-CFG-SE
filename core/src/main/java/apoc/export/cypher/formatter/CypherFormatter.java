@@ -17,17 +17,17 @@ public interface CypherFormatter {
 
 	String statementForNode(Node node, Map<String, Set<String>> uniqueConstraints, Set<String> indexedProperties, Set<String> indexNames);
 
-	String statementForRelationship(Relationship relationship, Map<String, Set<String>> uniqueConstraints, Set<String> indexedProperties);
+	String statementForRelationship(Relationship relationship, Map<String, Set<String>> uniqueConstraints, Set<String> indexedProperties, ExportConfig exportConfig);
 
-	String statementForNodeIndex(String label, Iterable<String> keys, boolean ifNotExist);
+	String statementForNodeIndex(String label, Iterable<String> keys, boolean ifNotExist, String idxName);
 
-	String statementForIndexRelationship(String type, Iterable<String> keys, boolean ifNotExist);
+	String statementForIndexRelationship(String type, Iterable<String> keys, boolean ifNotExist, String idxName);
 
 	String statementForNodeFullTextIndex(String name, Iterable<Label> labels, Iterable<String> keys);
 
 	String statementForRelationshipFullTextIndex(String name, Iterable<RelationshipType> types, Iterable<String> keys);
 
-	String statementForConstraint(String label, Iterable<String> keys, boolean ifNotExist);
+	String statementForConstraint(String label, Iterable<String> keys, boolean ifNotExist, String name);
 
 	String statementForCleanUp(int batchSize);
 

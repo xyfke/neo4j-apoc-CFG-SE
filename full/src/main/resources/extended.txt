@@ -66,6 +66,7 @@ apoc.load.directory.async.remove
 apoc.load.directory.async.removeAll
 apoc.load.driver
 apoc.load.html
+apoc.load.htmlPlainText
 apoc.load.jdbc
 apoc.load.jdbcParams
 apoc.load.jdbcUpdate
@@ -158,6 +159,7 @@ apoc.uuid.install
 apoc.uuid.list
 apoc.uuid.remove
 apoc.uuid.removeAll
+apoc.coll.avgDuration
 apoc.data.email
 apoc.static.get
 apoc.static.getAll

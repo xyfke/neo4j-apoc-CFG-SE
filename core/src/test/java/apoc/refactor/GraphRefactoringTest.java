@@ -16,7 +16,7 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
-import org.neo4j.graphdb.config.Setting;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
@@ -48,6 +48,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.SettingImpl.newBuilder;
 import static org.neo4j.configuration.SettingValueParsers.BOOL;
@@ -58,6 +59,11 @@ import static org.neo4j.graphdb.Label.label;
  * @since 25.03.16
  */
 public class GraphRefactoringTest {
+    protected static final String CLONE_NODES_QUERY = "match (n:MyBook) with n call apoc.refactor.cloneNodes([n], true) " +
+            "YIELD output, error RETURN output, error";
+    protected static final String CLONE_SUBGRAPH_QUERY = "MATCH (n:MyBook) with n call apoc.refactor.cloneSubgraph([n], [], {}) YIELD output, error RETURN output, error";
+    protected static final String EXTRACT_QUERY = "MATCH p=(:Start)-[r:TO_MOVE]->(:End) with r call apoc.refactor.extractNode([r], ['MyBook'], 'OUT', 'IN') " +
+            "YIELD output, error RETURN output, error";
 
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule()
@@ -625,6 +631,31 @@ MATCH (a:A {prop1:1}) MATCH (b:B {prop2:99}) CALL apoc.refactor.mergeNodes([a, b
     }
 
     @Test
+    public void testIssue3000() {
+        db.executeTransactionally("CREATE (a:Person {name: 'Mark', city: 'London'})\n" +
+                "CREATE (b:Person {name: 'Dan', city: 'Hull'})\n" +
+                "CREATE (a)-[r:FRIENDS_WITH]->(b)");
+        
+        testResult(db, "MATCH (p:Person) WITH collect(p) as people \n" +
+                        "CALL apoc.refactor.cloneNodes(people, true) \n" +
+                        "YIELD output \n" +
+                        "RETURN output ORDER BY output.name",
+                (row) -> {
+                    final ResourceIterator<Node> nodes = row.columnAs("output");
+                    final Node first = nodes.next();
+                    assertEquals("Dan", first.getProperty("name"));
+                    first.getRelationships()
+                            .forEach(i -> assertEquals("Mark", i.getStartNode().getProperty("name")));
+                    final Node second = nodes.next();
+                    assertEquals("Mark", second.getProperty("name"));
+                    second.getRelationships()
+                            .forEach(i -> assertEquals("Dan", i.getEndNode().getProperty("name")));
+                    assertFalse(nodes.hasNext());
+                }
+        );
+    }
+
+    @Test
     public void testCloneNodes() throws Exception {
         Long nodeId = db.executeTransactionally("CREATE (f:Foo {name:'foo',age:42})-[:FB]->(:Bar) RETURN id(f) AS nodeId", emptyMap(),
                 result -> Iterators.single(result.columnAs("nodeId")));
@@ -1022,6 +1053,32 @@ MATCH (a:A {prop1:1}) MATCH (b:B {prop2:99}) CALL apoc.refactor.mergeNodes([a, b
         assertEquals(8, relsCount);
         db.executeTransactionally("DROP CONSTRAINT ON (n:`" + label + "`) ASSERT n.`" + targetKey + "` IS UNIQUE");
     }
+    @Test
+    public void testRefactorCategoryDoesntAllowCypherInjection() {
+        // given
+        final String label = "Country";
+        final String targetKey = "name";
+        db.executeTransactionally("CREATE CONSTRAINT constraint FOR (n:`" + label + "`) REQUIRE n.`" + targetKey + "` IS UNIQUE");
+        db.executeTransactionally("with [\"IT\", \"DE\"] as countries\n" +
+                "unwind countries as country\n" +
+                "foreach (no in RANGE(1, 4) |\n" +
+                "  create (n:Company {name: country + no, country: country})\n" +
+                ")");
+
+        // when
+        db.executeTransactionally("CALL apoc.refactor.categorize('country', 'FOO`]->() WITH n SET n = {} RETURN n//', true, $label, $targetKey, [], 1)",
+                map("label", label, "targetKey", targetKey));
+
+        // then
+        final long countries = TestUtil.singleResultFirstColumn(db, "MATCH (c:Country) RETURN count(c) AS countries");
+        assertEquals(2, countries);
+        final List<String> countryNames = TestUtil.firstColumn(db, "MATCH (c:Country) RETURN c.name");
+        assertThat(countryNames, Matchers.containsInAnyOrder("IT", "DE"));
+
+        final long relsCount = TestUtil.singleResultFirstColumn(db, "MATCH p = (c:Company)-[:`FOO``]->() WITH n SET n = {} RETURN n//`]->(cc:Country) RETURN count(p) AS relsCount");
+        assertEquals(8, relsCount);
+        db.executeTransactionally("DROP CONSTRAINT constraint");
+    }
 
     @Test
     public void testMergeNodeShouldNotCreateSelfRelationshipsInPreExistingSelfRel() {
@@ -1260,6 +1317,43 @@ MATCH (a:A {prop1:1}) MATCH (b:B {prop2:99}) CALL apoc.refactor.mergeNodes([a, b
                     assertSelfRel(relIterator.next(), "Q");
                     assertFalse(relIterator.hasNext());
                 });
+    }
+
+    @Test
+    public void issue2797WithCloneNodes() {
+        issue2797Common(CLONE_NODES_QUERY);
+    }
+
+    @Test
+    public void issue2797WithExtractNode() {
+        db.executeTransactionally("CREATE (:Start)-[r:TO_MOVE {name: 1}]->(:End)");
+        issue2797Common(EXTRACT_QUERY);
+    }
+
+    @Test
+    public void issue2797WithCloneSubgraph() {
+        issue2797Common(CLONE_SUBGRAPH_QUERY);
+    }
+    
+    private void issue2797Common(String extractQuery) {
+        db.executeTransactionally(("CREATE CONSTRAINT unique_book ON (book:MyBook) ASSERT book.name IS UNIQUE"));
+
+        db.executeTransactionally(("CREATE (n:MyBook {name: 1})"));
+        
+        testCall(db, extractQuery, r -> {
+            final String actualError = (String) r.get("error");
+            assertTrue(actualError.contains("already exists with label `MyBook` and property `name` = 1"));
+            assertNull(r.get("output"));
+        });
+
+        testCall(db, "MATCH (n:MyBook) RETURN properties(n) AS props", 
+                r -> {
+                    final Map<String, Long> expected = Map.of("name", 1L);
+                    assertEquals(expected, r.get("props"));
+                });
+
+        db.executeTransactionally("DROP CONSTRAINT unique_book");
+        db.executeTransactionally("MATCH (n:MyBook) DELETE n");
     }
 
     private void assertSelfRel(Relationship next) {

@@ -58,7 +58,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
-import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.AnyType;
@@ -585,7 +584,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                     return VirtualValues.list(objects);
                 } else if (toConvert instanceof Map) {
                     Map<String, Object> map = (Map) toConvert;
-                    MapValueBuilder builder = new MapValueBuilder(map.size());
+                    MapValueBuilder builder = new MapValueBuilder();
                     map.entrySet().stream().forEach(e -> {
                         builder.add(e.getKey(), convertToValueRecursive(e.getValue()));
                     });

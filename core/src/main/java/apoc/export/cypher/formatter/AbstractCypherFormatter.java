@@ -5,6 +5,7 @@ import apoc.export.util.ExportFormat;
 import apoc.export.util.Reporter;
 import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
+import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -21,8 +22,10 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static apoc.export.cypher.formatter.CypherFormatterUtils.Q_UNIQUE_ID_LABEL;
+import static apoc.export.cypher.formatter.CypherFormatterUtils.Q_UNIQUE_ID_REL;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_PROP;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.quote;
+import static apoc.export.cypher.formatter.CypherFormatterUtils.simpleKeyValue;
 
 /**
  * @author AgileLARUS
@@ -31,10 +34,11 @@ import static apoc.export.cypher.formatter.CypherFormatterUtils.quote;
  */
 abstract class AbstractCypherFormatter implements CypherFormatter {
 
-	private static final String STATEMENT_CONSTRAINTS = "CREATE CONSTRAINT%s ON (node:%s) ASSERT (%s) %s;";
+	private static final String STATEMENT_CONSTRAINTS = "CREATE CONSTRAINT%s%s ON (node:%s) ASSERT (%s) %s;";
 
 	private static final String STATEMENT_NODE_FULLTEXT_IDX = "CREATE FULLTEXT INDEX %s FOR (n:%s) ON EACH [%s];";
 	private static final String STATEMENT_REL_FULLTEXT_IDX = "CREATE FULLTEXT INDEX %s FOR ()-[rel:%s]-() ON EACH [%s];";
+	private static final String ID_REL_KEY = "id";
 
 	@Override
 	public String statementForCleanUp(int batchSize) {
@@ -44,16 +48,18 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 	}
 
 	@Override
-	public String statementForNodeIndex(String label, Iterable<String> keys, boolean ifNotExists) {
-		return String.format("CREATE INDEX%s FOR (node:%s) ON (%s);", 
+	public String statementForNodeIndex(String label, Iterable<String> keys, boolean ifNotExists, String idxName) {
+		return String.format("CREATE INDEX%s%s FOR (node:%s) ON (%s);",
+				idxName,
 				getIfNotExists(ifNotExists),
 				Util.quote(label),
 				getPropertiesQuoted(keys, "node."));
 	}
 	
 	@Override
-	public String statementForIndexRelationship(String type, Iterable<String> keys, boolean ifNotExists) {
-		return String.format("CREATE INDEX%s FOR ()-[rel:%s]-() ON (%s);", 
+	public String statementForIndexRelationship(String type, Iterable<String> keys, boolean ifNotExists, String idxName) {
+		return String.format("CREATE INDEX%s%s FOR ()-[rel:%s]-() ON (%s);",
+				idxName,
 				getIfNotExists(ifNotExists), 
 				Util.quote(type), 
 				getPropertiesQuoted(keys, "rel."));
@@ -82,10 +88,10 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 	}
 
 	@Override
-	public String statementForConstraint(String label, Iterable<String> keys, boolean ifNotExists) {
+	public String statementForConstraint(String label, Iterable<String> keys, boolean ifNotExists, String name) {
 		String keysString = getPropertiesQuoted(keys, "node.");
 
-		return String.format(STATEMENT_CONSTRAINTS, getIfNotExists(ifNotExists), Util.quote(label), keysString, Iterables.count(keys) > 1 ? "IS NODE KEY" : "IS UNIQUE");
+		return String.format(STATEMENT_CONSTRAINTS, name, getIfNotExists(ifNotExists), Util.quote(label), keysString, Iterables.count(keys) > 1 ? "IS NODE KEY" : "IS UNIQUE");
 	}
 
 	private String getIfNotExists(boolean ifNotExists) {
@@ -117,13 +123,23 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 		return result.toString();
 	}
 
-	public String mergeStatementForRelationship(CypherFormat cypherFormat, Relationship relationship, Map<String, Set<String>> uniqueConstraints, Set<String> indexedProperties) {
+	public String mergeStatementForRelationship(CypherFormat cypherFormat, Relationship relationship, Map<String, Set<String>> uniqueConstraints, Set<String> indexedProperties, ExportConfig exportConfig) {
 		StringBuilder result = new StringBuilder(1000);
 		result.append("MATCH ");
-		result.append(CypherFormatterUtils.formatNodeLookup("n1", relationship.getStartNode(), uniqueConstraints, indexedProperties));
+		final Node startNode = relationship.getStartNode();
+		result.append(CypherFormatterUtils.formatNodeLookup("n1", startNode, uniqueConstraints, indexedProperties));
 		result.append(", ");
-		result.append(CypherFormatterUtils.formatNodeLookup("n2", relationship.getEndNode(), uniqueConstraints, indexedProperties));
-		result.append(" MERGE (n1)-[r:" + CypherFormatterUtils.quote(relationship.getType().name()) + "]->(n2)");
+		final Node endNode = relationship.getEndNode();
+		result.append(CypherFormatterUtils.formatNodeLookup("n2", endNode, uniqueConstraints, indexedProperties));
+		final RelationshipType type = relationship.getType();
+		final boolean withMultiRels = exportConfig.isMultipleRelationshipsWithType() &&
+				StreamSupport.stream(startNode.getRelationships(Direction.OUTGOING, type).spliterator(), false)
+						.anyMatch(r -> !r.equals(relationship) && r.getEndNode().equals(endNode));
+
+		String mergeUniqueKey = withMultiRels
+				? simpleKeyValue(Q_UNIQUE_ID_REL, relationship.getId())
+				: "";
+		result.append(" MERGE (n1)-[r:" + Util.quote(type.name()) + mergeUniqueKey + "]->(n2)");
 		if (relationship.getPropertyKeys().iterator().hasNext()) {
 			result.append(cypherFormat.equals(CypherFormat.UPDATE_STRUCTURE) ? " ON CREATE SET " : " SET ");
 			result.append(CypherFormatterUtils.formatRelationshipProperties("r", relationship, false));
@@ -297,10 +313,17 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 				Node startNode = rel.getStartNode();
 				writeRelationshipNodeIds(uniqueConstraints, out, start, startNode);
 
+				Node endNode = rel.getEndNode();
+				final boolean withMultipleRels = exportConfig.isMultipleRelationshipsWithType() && 
+						relationshipList.stream()
+								.anyMatch(r -> !r.equals(rel) && r.getEndNode().equals(endNode) && r.getStartNode().equals(startNode));
 				out.append(", ");
+				if (withMultipleRels) {
+					String uniqueId = String.format("%s: %s, ", ID_REL_KEY, rel.getId());
+					out.append(uniqueId);
+				}
 
 				// end node
-				Node endNode = rel.getEndNode();
 				writeRelationshipNodeIds(uniqueConstraints, out, end, endNode);
 
 				// properties
@@ -313,7 +336,7 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 				out.append("}");
 
 				if (last.equals(rel) || isBatchMatch(exportConfig, batchCount) || isUnwindBatchMatch(exportConfig, unwindCount)) {
-					closeUnwindRelationships(relationshipClause, setClause, uniqueConstraints, exportConfig, out, start, end, path, last);
+					closeUnwindRelationships(relationshipClause, setClause, uniqueConstraints, exportConfig, out, start, end, path, last, withMultipleRels);
 					writeBatchEnd(exportConfig, out, batchCount);
 					unwindCount.set(0);
 				} else {
@@ -326,7 +349,7 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 		reporter.update(0, relCount.get(), propertiesCount.longValue());
 	}
 
-	private void closeUnwindRelationships(String relationshipClause, String setClause, Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, PrintWriter out, String start, String end, Map<String, Object> path, Relationship last) {
+	private void closeUnwindRelationships(String relationshipClause, String setClause, Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, PrintWriter out, String start, String end, Map<String, Object> path, Relationship last, boolean withMultipleRels) {
 		writeUnwindEnd(exportConfig, out);
 		// match start node
 		writeRelationshipMatchAsciiNode(last.getStartNode(), out, start, uniqueConstraints);
@@ -338,7 +361,10 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 
 		// create the relationship (depends on the strategy)
 		out.append(relationshipClause);
-		out.append("(start)-[r:" + Util.quote(path.get("type").toString()) + "]->(end) ");
+		String mergeUniqueKey = withMultipleRels
+				? simpleKeyValue(Q_UNIQUE_ID_REL, "row." + ID_REL_KEY)
+				: "";
+		out.append("(start)-[r:" + Util.quote(path.get("type").toString()) + mergeUniqueKey + "]->(end) ");
 		out.append(setClause);
 		out.append("r += row.properties;");
 		out.append(StringUtils.LF);

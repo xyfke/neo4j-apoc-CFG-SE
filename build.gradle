@@ -16,7 +16,7 @@ downloadLicenses {
 
 allprojects {
     group = 'org.neo4j.procedure'
-    version = '4.4.0.5'
+    version = '4.4.0.8'
     archivesBaseName = 'apoc'
     description = """neo4j-apoc-procedures"""
 }
@@ -88,6 +88,10 @@ subprojects {
         // We need to ignore the failures because we may have tests muted
         if (System.env.TEAMCITY_VERSION != null) {
             ignoreFailures(true)
+            if (project.hasProperty('excludeSeleniumTests')) {
+                exclude '**/LoadHtmlTest*'
+                exclude '**/LoadHtmlTestParameterized*'
+            }
         }
 
         filter {
@@ -116,7 +120,7 @@ subprojects {
 
 ext {
     // NB: due to version.json generation by parsing this file, the next line must not have any if/then/else logic
-    neo4jVersion = "4.4.5"
+    neo4jVersion = "4.4.9"
     // instead we apply the override logic here
     neo4jVersionEffective = project.hasProperty("neo4jVersionOverride") ? project.getProperty("neo4jVersionOverride") : neo4jVersion
     testContainersVersion = '1.15.1'

@@ -23,8 +23,8 @@ public class UpdateStructureCypherFormatter extends AbstractCypherFormatter impl
 	}
 
 	@Override
-	public String statementForRelationship(Relationship relationship, Map<String, Set<String>> uniqueConstraints, Set<String> indexedProperties) {
-        return super.mergeStatementForRelationship(CypherFormat.UPDATE_STRUCTURE, relationship, uniqueConstraints, indexedProperties);
+	public String statementForRelationship(Relationship relationship, Map<String, Set<String>> uniqueConstraints, Set<String> indexedProperties, ExportConfig exportConfig) {
+        return super.mergeStatementForRelationship(CypherFormat.UPDATE_STRUCTURE, relationship, uniqueConstraints, indexedProperties, exportConfig);
 	}
 
 	@Override
@@ -33,17 +33,17 @@ public class UpdateStructureCypherFormatter extends AbstractCypherFormatter impl
 	}
 
 	@Override
-	public String statementForNodeIndex(String label, Iterable<String> key, boolean ifNotExist) {
+	public String statementForNodeIndex(String label, Iterable<String> key, boolean ifNotExist, String idxName) {
 		return "";
 	}
 
 	@Override
-	public String statementForIndexRelationship(String type, Iterable<String> key, boolean ifNotExists) {
+	public String statementForIndexRelationship(String type, Iterable<String> key, boolean ifNotExists, String idxName) {
 		return "";
 	}
 
 	@Override
-	public String statementForConstraint(String label, Iterable<String> key, boolean ifNotExists) {
+	public String statementForConstraint(String label, Iterable<String> key, boolean ifNotExists, String name) {
 		return "";
 	}
 

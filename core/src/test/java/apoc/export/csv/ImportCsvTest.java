@@ -3,6 +3,7 @@ package apoc.export.csv;
 import apoc.ApocSettings;
 import apoc.util.CompressionAlgo;
 import apoc.util.TestUtil;
+import org.apache.commons.io.FileUtils;
 import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Before;
@@ -37,7 +38,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.util.Arrays.asList;
 import static apoc.util.BinaryTestUtil.fileToBinary;
 import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.MapUtil.map;
@@ -47,6 +47,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
+import static org.neo4j.configuration.GraphDatabaseSettings.TransactionStateMemoryAllocation.OFF_HEAP;
+import static org.neo4j.configuration.SettingValueParsers.BYTES;
+import static org.junit.Assert.fail;
 
 public class ImportCsvTest {
     public static final String BASE_URL_FILES = "src/test/resources/csv-inputs";
@@ -58,6 +61,9 @@ public class ImportCsvTest {
             .withSetting(ApocSettings.apoc_export_file_enabled, true)
             .withSetting(GraphDatabaseSettings.allow_file_urls, true)
             .withSetting(GraphDatabaseSettings.db_temporal_timezone, DEFAULT_TIMEZONE)
+            .withSetting(GraphDatabaseSettings.tx_state_max_off_heap_memory, BYTES.parse("250m"))
+            .withSetting(GraphDatabaseSettings.tx_state_memory_allocation, OFF_HEAP)
+            .withSetting(GraphDatabaseSettings.memory_tracking, true)
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, new File(BASE_URL_FILES).toPath().toAbsolutePath());
 
     final Map<String, String> testCsvs = Collections
@@ -148,7 +154,14 @@ public class ImportCsvTest {
                             ":ID(node_space_1),:LABEL,str_attribute:STRING,int_attribute:INT,int_attribute_array:INT[],double_attribute_array:FLOAT[]\n" +
                             "n1,Thing,once upon a time,1,\"2;3\",\"2.3;3.5\"\n" +
                             "n2,Thing,,2,\"4;5\",\"2.6;3.6\"\n" +
-                            "n3,Thing,,,,\n"
+                            "n3,Thing,,,,\n"),
+                    new AbstractMap.SimpleEntry<>("emptyArray", 
+                            "id:ID,:LABEL,arr:STRING[],description:STRING\n" +
+                            "1,Arrays,a;b;c;d;e,normal,\n" +
+                            "2,Arrays,,withNull\n" +
+                            "3,Arrays,a;;c;;e,withEmptyItem\n" +
+                            "4,Arrays,a; ;c; ;e,withBlankItem\n" +
+                            "5,Arrays, ,withWhiteSpace\n"
                     )
             ).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
 
@@ -159,6 +172,14 @@ public class ImportCsvTest {
         }
 
         TestUtil.registerProcedure(db, ImportCsv.class);
+    }
+    
+    @Test
+    public void testImportCsvLargeFile() {
+        TestUtil.testCall(db, "CALL apoc.import.csv([{fileName: $nodeFile, labels: ['Person']}], [], $config)",
+                map("nodeFile", "file:/largeFile.csv",
+                        "config", map("batchSize", 100L)),
+                (r) -> assertEquals(664850L, r.get("nodes")));
     }
 
     @Test
@@ -181,6 +202,53 @@ public class ImportCsvTest {
 
         List<Long> ids = TestUtil.firstColumn(db, "MATCH (n:Person) RETURN n.id AS id ORDER BY id");
         assertThat(ids, Matchers.contains(1L, 2L));
+    }
+    
+    @Test
+    public void testImportCsvWithSkipLines() {
+        // skip only-header (default config)
+        testSkipLine(1L, 2);
+
+        // skip header and another one
+        testSkipLine(2L, 1);
+
+        // skip header and another two (no result because the file has 3 lines)
+        testSkipLine(3L, 0);
+    }
+
+    private void testSkipLine(long skipLine, int nodes) {
+        TestUtil.testCall(db,
+                "call apoc.import.csv([{fileName: 'id-idspaces.csv', labels: ['SkipLine']}], [], $config)",
+                map("config", 
+                        map("delimiter", '|', "skipLines", skipLine)),
+                (r) -> assertEquals((long) nodes, r.get("nodes"))
+        );
+
+        TestUtil.testCallCount(db, "MATCH (n:SkipLine) RETURN n", nodes);
+        
+        db.executeTransactionally("MATCH (n:SkipLine) DETACH DELETE n");
+    }
+
+    @Test
+    public void issue2826WithImportCsv() {
+        db.executeTransactionally("CREATE (n:Person {name: 'John'})");
+        db.executeTransactionally("CREATE CONSTRAINT unique_person ON (n:Person) ASSERT n.name IS UNIQUE");
+        try {
+            TestUtil.testCall(db,
+                    "CALL apoc.import.csv([{fileName: $file, labels: ['Person']}], [], $config)",
+                    map("file", "file:/id.csv", "config", map("delimiter", '|')),
+                    (r) -> fail());
+        } catch (RuntimeException e) {
+            String expected = "Failed to invoke procedure `apoc.import.csv`: " +
+                    "Caused by: IndexEntryConflictException{propertyValues=( String(\"John\") ), addedNodeId=-1, existingNodeId=0}";
+            assertEquals(expected, e.getMessage());
+        }
+
+        // should return only 1 node due to constraint exception
+        TestUtil.testCall(db, "MATCH (n:Person) RETURN properties(n) AS props",
+                r -> assertEquals(Map.of("name", "John"), r.get("props")));
+
+        db.executeTransactionally("DROP CONSTRAINT unique_person");
     }
 
     @Test
@@ -483,6 +551,38 @@ public class ImportCsvTest {
     }
 
     @Test
+    public void testEmptyArray() {
+        TestUtil.testCall(db, "CALL apoc.import.csv([{fileName: 'file:/emptyArray.csv', labels:[]}], [], $conf)",
+                map( "conf", map("ignoreEmptyCellArray", true)),
+                r -> assertEquals(5L, r.get("nodes")));
+
+        TestUtil.testResult(db, "MATCH (node:Arrays) RETURN node ORDER BY node.id", r -> {
+            final Map<String, Object> propsOne = ((Node) r.next().get("node")).getAllProperties();
+            assertEquals("normal", propsOne.get("description"));
+            assertArrayEquals(new String[] { "a", "b", "c", "d", "e" }, (String[]) propsOne.get("arr"));
+            
+            final Map<String, Object> propsTwo = ((Node) r.next().get("node")).getAllProperties();
+            assertEquals("withNull", propsTwo.get("description"));
+            assertFalse(propsTwo.containsKey("arr"));
+            
+            final Map<String, Object> propsThree = ((Node) r.next().get("node")).getAllProperties();
+            assertEquals("withEmptyItem", propsThree.get("description"));
+            assertArrayEquals(new String[] { "a", "", "c", "", "e" }, (String[]) propsThree.get("arr"));
+            
+            final Map<String, Object> propsFour = ((Node) r.next().get("node")).getAllProperties();
+            assertEquals("withBlankItem", propsFour.get("description"));
+            assertArrayEquals(new String[] { "a", " ", "c", " ", "e" }, (String[]) propsFour.get("arr"));
+            
+            final Map<String, Object> propsFive = ((Node) r.next().get("node")).getAllProperties();
+            assertEquals("withWhiteSpace", propsFive.get("description"));
+            assertArrayEquals(new String[] { " " }, (String[]) propsFive.get("arr"));
+            
+            assertFalse(r.hasNext());
+        });
+        
+    }
+
+    @Test
     public void testRelationshipWithoutIdSpaces() {
         TestUtil.testCall(
                 db,
@@ -601,9 +701,12 @@ public class ImportCsvTest {
     }
 
     @Test
-    public void ignoreFieldTypeWithBothBinaryAndFileUrl() {
+    public void ignoreFieldTypeWithBothBinaryAndFileUrl() throws IOException {
+        FileUtils.writeByteArrayToFile(new File(BASE_URL_FILES, "ignore-relationships.csv.zz"),
+                fileToBinary(new File(BASE_URL_FILES, "ignore-relationships.csv"), CompressionAlgo.DEFLATE.name()));
+        
         final Map<String, Object> config = map("nodeFile", fileToBinary(new File(BASE_URL_FILES, "ignore-nodes.csv"), CompressionAlgo.DEFLATE.name()),
-                "relFile", "file:/ignore-relationships.csv",
+                "relFile", "file:/ignore-relationships.csv.zz",
                 "config", map("delimiter", '|', "batchSize", 1, COMPRESSION, CompressionAlgo.DEFLATE.name())
         );
         final String query = "CALL apoc.import.csv([{data: $nodeFile, labels: ['Person']}], [{data: $relFile, type: 'KNOWS'}], $config)";
