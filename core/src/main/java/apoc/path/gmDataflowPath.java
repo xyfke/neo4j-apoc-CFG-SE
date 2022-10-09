@@ -481,11 +481,11 @@ public class gmDataflowPath {
          if (r.isType(gmDataflowPath.RelTypes.parWrite)) {
              Iterable<Relationship> targetCFGs;
              if (first) {
-                 targetCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                         gmDataflowPath.RelTypes.pwSource);
-             } else {
                  targetCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                         gmDataflowPath.RelTypes.pwDestination);
+                         RelTypes.pwDestination);
+             } else {
+                 targetCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                         RelTypes.pwSource);
              }
 
             for (Relationship targetCFG : targetCFGs) {
