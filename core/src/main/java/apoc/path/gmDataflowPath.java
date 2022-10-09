@@ -121,7 +121,7 @@ public class gmDataflowPath {
             Node prevNode = prevRel.getStartNode();
 
             if (cfgCheck) {
-                cfgPath = getCFGPath(prevRel, curRel, true, true);
+                cfgPath = getCFGPath(prevRel, curRel, false, false);
             } else {
                 cfgPath = new ArrayList<Relationship>();
             }
