@@ -53,8 +53,7 @@ public class gmDataflowPath {
         HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
         Queue<ArrayList<Relationship>> queuePath = new LinkedList<>();
         ArrayList<Relationship> curRels = new ArrayList<Relationship>();
-        PathImpl.Builder builder = new PathImpl.Builder(startEdge.getStartNode());
-        curRels.add(startEdge);
+        PathImpl.Builder builder = new PathImpl.Builder(startEdge.getEndNode());
         visitedEdge.add(startEdge);
 
         // cfgPath variable
@@ -86,11 +85,9 @@ public class gmDataflowPath {
                 }
 
                 if (cfgPath != null) {
-                    curRels.add(endEdge);
                     return buildPath(builder, curRels);
                 }
             } else {
-                curRels.add(endEdge);
                 return buildPath(builder, curRels);
             }
         }
@@ -140,12 +137,10 @@ public class gmDataflowPath {
                                 getCFGPath(curRel, endEdge, false, true);
 
                         if (cfgPath != null) {
-                            curRels.add(endEdge);
                             return buildPath(builder, curRels);
                         }
 
                     } else {
-                        curRels.add(endEdge);
                         return buildPath(builder, curRels);
                     }
 
