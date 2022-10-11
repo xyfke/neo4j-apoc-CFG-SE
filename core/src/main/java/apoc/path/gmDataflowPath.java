@@ -55,6 +55,7 @@ public class gmDataflowPath {
         ArrayList<Relationship> curRels = new ArrayList<Relationship>();
         PathImpl.Builder builder = new PathImpl.Builder(startEdge.getEndNode());
         visitedEdge.add(startEdge);
+        curRels.add(startEdge);
 
         // cfgPath variable
         List<Relationship> cfgPath = null;
@@ -85,9 +86,11 @@ public class gmDataflowPath {
                 }
 
                 if (cfgPath != null) {
+                    curRels.remove(0);
                     return buildPath(builder, curRels);
                 }
             } else {
+                curRels.remove(0);
                 return buildPath(builder, curRels);
             }
         }
@@ -137,10 +140,12 @@ public class gmDataflowPath {
                                 getCFGPath(curRel, endEdge, false, true);
 
                         if (cfgPath != null) {
+                            curRels.remove(0);
                             return buildPath(builder, curRels);
                         }
 
                     } else {
+                        curRels.remove(0);
                         return buildPath(builder, curRels);
                     }
 
