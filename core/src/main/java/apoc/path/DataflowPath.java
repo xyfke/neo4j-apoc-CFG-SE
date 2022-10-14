@@ -1,19 +1,15 @@
 package apoc.path;
 
-import org.apache.hadoop.thirdparty.org.checkerframework.checker.units.qual.A;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphalgo.impl.util.PathImpl;
 import org.neo4j.graphdb.*;
-import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.procedure.*;
 import org.neo4j.logging.Log;
 
-import javax.management.relation.Relation;
 import java.util.*;
-import java.util.stream.Stream;
 
 public class DataflowPath {
 
