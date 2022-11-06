@@ -56,6 +56,14 @@ public class CandidatePath {
         }
     }
 
+    public Node getStartNode() {
+        if (this.pathSize >= 1) {
+            return this.partialResult.get(this.pathSize-1).getStartNode();
+        } else {
+            return null;
+        }
+    }
+
     public int getPathSize() {
         return this.pathSize;
     }
@@ -78,6 +86,17 @@ public class CandidatePath {
 
         for (Relationship rel : this.partialResult) {
             builder = builder.push(rel);
+        }
+
+        return builder.build();
+
+    }
+
+    public Path backwardBuildPath() {
+        PathImpl.Builder builder = new PathImpl.Builder(this.partialResult.get(this.pathSize-1).getStartNode());
+
+        for (int i = this.pathSize-1; i >= 0; i--) {
+            builder = builder.push(this.partialResult.get(i));
         }
 
         return builder.build();

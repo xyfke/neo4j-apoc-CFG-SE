@@ -1,7 +1,5 @@
 package apoc.path;
 
-import org.checkerframework.checker.units.qual.A;
-import org.checkerframework.checker.units.qual.C;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
@@ -11,7 +9,6 @@ import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.procedure.*;
 import org.neo4j.logging.Log;
 
-import java.lang.reflect.Array;
 import java.util.*;
 
 public class DataflowPath {
@@ -53,7 +50,6 @@ public class DataflowPath {
         HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
         Queue<CandidatePath> queuePath = new LinkedList<>();
         CandidatePath curPath = null;
-
 
 
         if ((startNode != null) && (endNode != null)) {         // dataflow in middle components
@@ -258,8 +254,8 @@ public class DataflowPath {
             return true;
         }
 
-        Relationship r1 = candidatePath.getSecondLastRel();
-        Relationship r2 = candidatePath.getLastRel();
+        Relationship curRel = candidatePath.getSecondLastRel();
+        Relationship nextRel = candidatePath.getLastRel();
 
         PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
                 new BasicEvaluationContext(tx, db),
@@ -267,8 +263,8 @@ public class DataflowPath {
         );
 
         // obtain cfg nodes and relationships associated with r1 and r2
-        HashSet<List<Node>> startCFGs = getConnectionNodes(r1, candidatePath, true);
-        HashSet<List<Node>> endCFGs = getConnectionNodes(r2, candidatePath, false);
+        HashSet<List<Node>> startCFGs = getConnectionNodes(curRel, candidatePath, true);
+        HashSet<List<Node>> endCFGs = getConnectionNodes(nextRel, candidatePath, false);
 
         Path cfgPath = null;
         Node n1 = null;
