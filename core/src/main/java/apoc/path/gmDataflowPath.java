@@ -45,128 +45,175 @@ public class gmDataflowPath {
                                @Name("endEdge") Relationship endEdge,
                              @Name("cfgCheck") boolean cfgCheck) {
 
-        Node start = startEdge.getEndNode();
+        //Node start = startEdge.getEndNode();
         Node end = endEdge.getStartNode();
-        DataflowType dType;
+        DataflowType category;
+        Iterable<Relationship> dataflowRels;
 
         // define needed variables
         HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
-        Queue<ArrayList<Relationship>> queuePath = new LinkedList<>();
-        ArrayList<Relationship> curRels = new ArrayList<Relationship>();
-        PathImpl.Builder builder = new PathImpl.Builder(startEdge.getEndNode());
-        visitedEdge.add(startEdge);
-        curRels.add(startEdge);
+        Queue<CandidatePath> queuePath = new LinkedList<>();
 
-        // cfgPath variable
-        List<Relationship> cfgPath = null;
+        // add first edge to path
+        CandidatePath curPath = new CandidatePath(startEdge);
+        queuePath.add(curPath);
 
 
         if ((startEdge.isType(RelTypes.varWrite)) && (endEdge.isType(RelTypes.parWrite))) {
-            dType = DataflowType.PREFIX;
+            category = DataflowType.PREFIX;
         } else if ((startEdge.isType(RelTypes.parWrite)) && (endEdge.isType(RelTypes.parWrite))) {
-            dType = DataflowType.INTRA;
+            category = DataflowType.INTRA;
         } else if ((startEdge.isType(RelTypes.parWrite)) && (endEdge.isType(RelTypes.varInfFunc))) {
-            dType = DataflowType.SUFFIX;
+            category = DataflowType.SUFFIX;
         } else {
             return null;
         }
 
-
-        // If no further search is required (start equals to end)
-        if ((start.equals(end))) {
-            if (cfgCheck) {
-                if (dType == DataflowType.PREFIX) {
-                    cfgPath = getCFGPath(startEdge, endEdge, false, true);
-                } else if (dType == DataflowType.INTRA) {
-                    cfgPath = getCFGPath(startEdge, endEdge, true, true);
-                } else if (dType == DataflowType.SUFFIX) {
-                    cfgPath = getCFGPath(startEdge, endEdge, true, false);
-                } else {
-                    cfgPath = null;
-                }
-
-                if (cfgPath != null) {
-                    curRels.remove(0);
-                    return buildPath(builder, curRels);
-                }
-            } else {
-                curRels.remove(0);
-                return buildPath(builder, curRels);
-            }
-        }
-
-        Iterable<Relationship> dataflowRels = getNextRels(start, false);
-
-        // add the relationships connected to start node
-        for (Relationship dataflowRel : dataflowRels) {
-            if (!visitedEdge.contains(dataflowRel)) {
-                ArrayList<Relationship> relList = new ArrayList<Relationship>(curRels);
-                relList.add(dataflowRel);
-                queuePath.add(relList);
-            }
-        }
-
-
         while (!queuePath.isEmpty()) {
-            // get first ArrayList<Relationship> item off of queuePath
-            curRels = queuePath.poll(); // get the array of dataflow relationship
 
-            // get the last relationship in the ArrayList path
-            Relationship curRel = curRels.get(curRels.size()-1);
-            Node curNode = curRel.getStartNode();
-            Node nextNode = curRel.getEndNode();
+            // get the last path
+            curPath = queuePath.poll();
 
-            // if path contains 2 or more relationships, then we need to verify the cfg path prior to adding
-            Relationship prevRel = curRels.get(curRels.size()-2);
-            Node prevNode = prevRel.getStartNode();
+            // isStartPW: category != PREFIX, len == 2
+            boolean isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 2));
+            boolean isEndPW = false;
 
-            if (cfgCheck) {
-                cfgPath = getCFGPath(prevRel, curRel, false, false);
-            } else {
-                cfgPath = new ArrayList<Relationship>();
-            }
+            // continue searching only if does not require cfg check or cfg check passes
+            if ((!cfgCheck) || (getCFGPath(curPath,isStartPW, isEndPW))) {
 
-            // if there exists a CFG path, then this is a valid path, and we can continue, otherwise drop path
-            if (cfgPath != null) {
-                visitedEdge.add(curRel);
+                visitedEdge.add(curPath.getLastRel());
 
-                // if the nextNode happens to be equal to end node, then we found the path
-                if (nextNode.equals(end)) {
+                // check if we reach end node
+                if (curPath.getEndNode().equals(end)) {
 
-                    if (cfgCheck) {
+                    CandidatePath returnPath = new CandidatePath(curPath, endEdge);
+                    isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 2));
+                    isEndPW = (category != DataflowType.SUFFIX);
 
-                        cfgPath = (dType == DataflowType.SUFFIX) ?
-                                getCFGPath(curRel, endEdge, false, false) :
-                                getCFGPath(curRel, endEdge, false, true);
-
-                        if (cfgPath != null) {
-                            curRels.remove(0);
-                            return buildPath(builder, curRels);
-                        }
-
-                    } else {
-                        curRels.remove(0);
-                        return buildPath(builder, curRels);
+                    if ((!cfgCheck) || (getCFGPath(returnPath, isStartPW, isEndPW))) {
+                        return returnPath.buildPath();
                     }
-
                 }
 
-                // otherwise keep looking
-                dataflowRels = getNextRels(nextNode, false);
-
-                // only add not visited edges
+                dataflowRels = getNextRels(curPath.getEndNode(), false);
                 for (Relationship dataflowRel : dataflowRels) {
                     if (!visitedEdge.contains(dataflowRel)) {
-                        ArrayList<Relationship> newCurRels = new ArrayList<Relationship>(curRels);
-                        newCurRels.add(dataflowRel);
-                        queuePath.add(newCurRels);
+                        CandidatePath newCandidatePath = new CandidatePath(curPath, dataflowRel);
+                        queuePath.add(newCandidatePath);
                     }
                 }
+
             }
 
         }
 
+
         return null;
+
+    }
+
+    @UserFunction
+    @Description("apoc.path.allGmDataflowPaths(startNode, endNode, startEdge, endEdge, cfgCheck) - finds a dataflow path consisting of dataflow relationships from one variable to another")
+    public List<Path> allGmDataflowPaths(@Name("startEdge") Relationship startEdge,
+                               @Name("endEdge") Relationship endEdge,
+                               @Name("cfgCheck") boolean cfgCheck) {
+
+        //Node start = startEdge.getEndNode();
+        Node end = endEdge.getStartNode();
+        DataflowType category;
+        Iterable<Relationship> dataflowRels;
+
+        // define needed variables
+        HashSet<Relationship> visitedEdges = new HashSet<Relationship>();
+        Queue<CandidatePath> queuePath = new LinkedList<>();
+
+        // add first edge to path
+        CandidatePath curPath = new CandidatePath(startEdge);
+        queuePath.add(curPath);
+
+        List<CandidatePath> returnCandidates = new ArrayList<CandidatePath>();
+
+
+        if ((startEdge.isType(RelTypes.varWrite)) && (endEdge.isType(RelTypes.parWrite))) {
+            category = DataflowType.PREFIX;
+        } else if ((startEdge.isType(RelTypes.parWrite)) && (endEdge.isType(RelTypes.parWrite))) {
+            category = DataflowType.INTRA;
+        } else if ((startEdge.isType(RelTypes.parWrite)) && (endEdge.isType(RelTypes.varInfFunc))) {
+            category = DataflowType.SUFFIX;
+        } else {
+            return null;
+        }
+
+        // cfgPath variable
+        List<Relationship> cfgPath = null;
+        int pathLen = -1;
+        boolean foundPath = false;
+
+        // keep track of visited relationships at current length
+        HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
+
+        while (!queuePath.isEmpty()) {
+
+            // get the last path
+            curPath = queuePath.poll();
+
+            int curLen = curPath.getPathSize();
+
+            if (foundPath && curLen > pathLen) {
+                // if path has been found and current path is longer than found path, can break
+                break;
+            }
+
+            if (curLen > pathLen) {
+                // add all relationships found at previous path length to visitedRels
+                visitedEdges.addAll(visitedEdge);
+                visitedEdge = new HashSet<Relationship>();
+            }
+            pathLen = curLen;
+
+            // boolean variables indicating whether we are doing a start or end check
+            boolean isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 2));
+            boolean isEndPW = false;
+
+            // continue searching only if does not require cfg check or cfg check passes
+            if ((!cfgCheck) || (getCFGPath(curPath,isStartPW, isEndPW))) {
+
+                visitedEdge.add(curPath.getLastRel());
+
+                // check if we reach end node
+                if (curPath.getEndNode().equals(end)) {
+
+                    CandidatePath returnPath = new CandidatePath(curPath, endEdge);
+                    isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 2));
+                    isEndPW = (category != DataflowType.SUFFIX);
+
+                    if ((!cfgCheck) || (getCFGPath(returnPath, isStartPW, isEndPW))) {
+                        foundPath = true;
+                        returnCandidates.add(returnPath);
+                    }
+                }
+
+                dataflowRels = getNextRels(curPath.getEndNode(), false);
+                for (Relationship dataflowRel : dataflowRels) {
+                    if (!visitedEdge.contains(dataflowRel)) {
+                        CandidatePath newCandidatePath = new CandidatePath(curPath, dataflowRel);
+                        queuePath.add(newCandidatePath);
+                    }
+                }
+
+            }
+
+        }
+
+        List<Path> returnPaths = new ArrayList<Path>();
+        for (CandidatePath returnCandidate : returnCandidates) {
+            if (returnCandidate.getPathSize() > 0) {
+                returnPaths.add(returnCandidate.buildPath());
+            }
+        }
+
+
+        return returnPaths;
 
     }
 
@@ -175,12 +222,15 @@ public class gmDataflowPath {
     // returns:
     //      - list of relationships: there is a valid path
     //      - null: invalid path
-    public List<Relationship> getCFGPath(Relationship r1, Relationship r2,
-                                         boolean isStartPW, boolean isEndPW) {
+    public boolean getCFGPath(CandidatePath candidatePath, boolean isStartPW,
+                              boolean isEndPW) {
 
-        if ((r1 == null) || (r2 == null)) {
-            return null;
+        if (candidatePath.getPathSize() < 2) {
+            return true;
         }
+
+        Relationship curRel = candidatePath.getSecondLastRel();
+        Relationship nextRel = candidatePath.getLastRel();
 
         PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
                 new BasicEvaluationContext(tx, db),
@@ -188,68 +238,36 @@ public class gmDataflowPath {
         );
 
         // obtain cfg nodes and relationships associated with r1 and r2
-
-        HashMap<Node, ArrayList<Relationship>> startCFGGraph = (isStartPW) ?
-                getParWriteConnectionNodes(r1, true) : getConnectionNodes(r1, true);
-        HashMap<Node, ArrayList<Relationship>> endCFGGraph = (isEndPW) ?
-                getParWriteConnectionNodes(r2, false) : getConnectionNodes(r2, false);
+        HashSet<List<Node>> startCFGs = (isStartPW) ? getParWriteConnectionNodes(curRel, candidatePath, true) :
+                getConnectionNodes(curRel, candidatePath, true);
+        HashSet<List<Node>> endCFGs = (isEndPW) ? getParWriteConnectionNodes(nextRel, candidatePath, false) :
+                getConnectionNodes(nextRel, candidatePath, false);
 
         Path cfgPath = null;
         Node n1 = null;
         Node n2 = null;
 
-        if ((startCFGGraph.isEmpty()) || (endCFGGraph.isEmpty())) {
-            return null;
+        if ((startCFGs.isEmpty()) || (endCFGs.isEmpty())) {
+            return false;
         }
 
+        HashSet<Node> acceptedCFGEnd = new HashSet<>();
 
         // if we can find a path from the cfg node associated with r1 to the cfg node associated
         // with r2, then there exists a cfg path
-        for (Node n1t : startCFGGraph.keySet()) {
-            for (Node n2t : endCFGGraph.keySet()) {
-                cfgPath = algo.findSinglePath(n1t, n2t);
+        for (List<Node> listStartCFG : startCFGs) {
+            Node startCFGNode = listStartCFG.get(0);
+            for (List<Node> listEndCFG : endCFGs) {
+                cfgPath = algo.findSinglePath(startCFGNode, listEndCFG.get(0));
                 if (cfgPath != null) {
-                    n1 = n1t; // store the cfg node for r1
-                    n2 = n2t; // store the cfg node for r2
-                    break;
+                    acceptedCFGEnd.add(listEndCFG.get(1));
                 }
-            }
-            if (cfgPath != null) {
-                break;
             }
         }
 
-        // only return cfg graph if there exists one
-        if ((cfgPath == null) || (n1 == null) || (n2 == null)) {
-            return null;
-        } else {
-            Iterable<Relationship> cfgRels = cfgPath.relationships();
-            ArrayList<Relationship> cfgGraph = startCFGGraph.get(n1);
-            ArrayList<Relationship> endCFGRels = endCFGGraph.get(n2);
+        candidatePath.updateCFG(acceptedCFGEnd);
 
-
-            if ((cfgGraph == null)) {
-                return null;
-            }
-
-            if ((endCFGRels == null)) {
-                return null;
-            }
-
-            // add relaitonships associated with n1
-            for (Relationship endCFGRel : endCFGRels) {
-                cfgGraph.add(endCFGRel);
-            }
-
-            // add connecting cfg nodes and relationships connecting n1 to n2
-            if (cfgRels != null) {
-                for (Relationship cfgRel : cfgRels) {
-                    cfgGraph.add(cfgRel);
-                }
-            }
-
-            return cfgGraph;
-        }
+        return !acceptedCFGEnd.isEmpty();
 
     }
 
@@ -317,166 +335,101 @@ public class gmDataflowPath {
 
     // helper function: return start and end CFG nodes along with the connections
     // return: a hashmap of CFG node as key and associated list of CFG relationships as value
-    public HashMap<Node, ArrayList<Relationship>> getConnectionNodes(Relationship r, boolean first) {
+    public HashSet<List<Node>> getConnectionNodes(Relationship r, CandidatePath candidatePath,
+                                                  boolean first) {
 
-        //HashMap<Node, ArrayList<Relationship>> srcCFGConns = new HashMap<>();
-        HashMap<Node, ArrayList<Relationship>> allCFGConns = new HashMap<>();
+        //ArrayList<Node> cfgNodes = new ArrayList<>();
+        HashSet<List<Node>> cfgNodes = new HashSet<>();   // HashSet<[srcNode, dstNode]> (need dstNode to update CFG)
+        Iterable<Relationship> srcCFGs = null;
+        Iterable<Relationship> dstCFGs = null;
 
-
-        if (r.isType(gmDataflowPath.RelTypes.varWrite)) {
-            Iterable<Relationship> srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    gmDataflowPath.RelTypes.vwSource);
-            Iterable<Relationship> dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    gmDataflowPath.RelTypes.vwDestination);
-
-            // get common nodes and store in vr1CFGConns
-            for (Relationship srcCFG : srcCFGs) {
-                Node srcCFGNode = srcCFG.getEndNode();
-                for (Relationship dstCFG : dstCFGs) {
-                    Node dstCFGNode = dstCFG.getEndNode();
-                    if (srcCFGNode.equals(dstCFGNode)) {
-                        ArrayList<Relationship> cfgConnRels = new ArrayList<Relationship>();
-                        cfgConnRels.add(srcCFG);
-                        cfgConnRels.add(dstCFG);
-                        allCFGConns.put(srcCFGNode, cfgConnRels);
-                    }
-                }
-            }
-        } else if (r.isType(gmDataflowPath.RelTypes.parWrite)) {
-            Iterable<Relationship> srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    gmDataflowPath.RelTypes.pwSource);
-            Iterable<Relationship> dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    gmDataflowPath.RelTypes.pwDestination);
-
-            // get common end nodes and store in vr1CFGConn
-            for (Relationship srcCFG : srcCFGs) {
-                Node srcCFGNode = srcCFG.getEndNode();
-                Iterable<Relationship> nextCFGRels = srcCFGNode.getRelationships(Direction.OUTGOING,
-                        gmDataflowPath.RelTypes.nextCFGBlock);
-                HashMap<Node, Relationship> invokeCFGRel = new HashMap<>();
-
-                // filter out the invoke CFG nodes
-                for (Relationship nextCFGRel : nextCFGRels) {
-                    boolean hasProp=nextCFGRel.hasProperty("cfgInvoke");
-                    if ((hasProp) && (nextCFGRel.getProperty("cfgInvoke").equals("1"))) {
-                        invokeCFGRel.put(nextCFGRel.getEndNode(), nextCFGRel);
-                    }
-                }
-
-                // filter out nodes
-                for (Relationship dstCFG : dstCFGs) {
-                    Node dstCFGNode = dstCFG.getEndNode();
-                    Relationship invokeCFGConn = invokeCFGRel.get(dstCFGNode);
-                    if (invokeCFGConn != null) {
-                        ArrayList<Relationship> cfgConnRels = new ArrayList<Relationship>();
-                        cfgConnRels.add(srcCFG);
-                        cfgConnRels.add(dstCFG);
-                        cfgConnRels.add(invokeCFGConn);
-
-                        // determine node to return as key
-                        if (first) {
-                            allCFGConns.put(dstCFGNode, cfgConnRels);
-                        } else {
-                            allCFGConns.put(srcCFGNode, cfgConnRels);
-                        }
-                    }
-                }
-
-
-            }
-
-        } else if (r.isType(gmDataflowPath.RelTypes.retWrite)) {
-            Iterable<Relationship> srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    gmDataflowPath.RelTypes.rwSource);
-            Iterable<Relationship> dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    gmDataflowPath.RelTypes.rwDestination);
-
-            // get common end nodes and store in vr1CFGConn
-            for (Relationship srcCFG : srcCFGs) {
-                Node srcCFGNode = srcCFG.getEndNode();
-                Iterable<Relationship> nextCFGRels = srcCFGNode.getRelationships(Direction.OUTGOING,
-                        gmDataflowPath.RelTypes.nextCFGBlock);
-                HashMap<Node, Relationship> invokeCFGRel = new HashMap<>();
-
-                // filter out the invoke CFG nodes
-                for (Relationship nextCFGRel : nextCFGRels) {
-                    boolean hasProp = nextCFGRel.hasProperty("cfgReturn");
-                    if ((hasProp) && (nextCFGRel.getProperty("cfgReturn").equals("1"))) {
-                        invokeCFGRel.put(nextCFGRel.getEndNode(), nextCFGRel);
-                    }
-                }
-
-                // filter out nodes
-                for (Relationship dstCFG : dstCFGs) {
-                    Node dstCFGNode = dstCFG.getEndNode();
-                    Relationship invokeCFGConn = invokeCFGRel.get(dstCFGNode);
-                    if (invokeCFGConn != null) {
-                        ArrayList<Relationship> cfgConnRels = new ArrayList<Relationship>();
-                        cfgConnRels.add(srcCFG);
-                        cfgConnRels.add(dstCFG);
-                        cfgConnRels.add(invokeCFGConn);
-
-                        // determine node to return as key
-                        if (first) {
-                            allCFGConns.put(dstCFGNode, cfgConnRels);
-                        } else {
-                            allCFGConns.put(srcCFGNode, cfgConnRels);
-                        }
-                    }
-                }
-            }
-        } else if ((r.isType(gmDataflowPath.RelTypes.varInfFunc)) || (r.isType(gmDataflowPath.RelTypes.varInfluence))) {
-
-            Iterable<Relationship> srcCFGs;
-            Iterable<Relationship> dstCFGs;
-
-            if (r.isType(gmDataflowPath.RelTypes.varInfFunc)) {
-                srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                        gmDataflowPath.RelTypes.vifSource);
-                dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                        gmDataflowPath.RelTypes.vifDestination);
-            } else {
-                srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                        gmDataflowPath.RelTypes.viSource);
-                dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                        gmDataflowPath.RelTypes.viDestination);
-            }
-
-            PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
-                    new BasicEvaluationContext(tx, db),
-                    buildPathExpander("nextCFGBlock>"), (int) Integer.MAX_VALUE
-            );
-
-            for (Relationship srcCFG : srcCFGs) {
-                for (Relationship dstCFG : dstCFGs) {
-                    Path vifCFG = algo.findSinglePath(srcCFG.getEndNode(), dstCFG.getEndNode());
-                    if (vifCFG != null) {
-                        ArrayList<Relationship> cfgConnRels = new ArrayList<Relationship>();
-                        cfgConnRels.add(srcCFG);
-                        cfgConnRels.add(dstCFG);
-                        for (Relationship vifRel : vifCFG.relationships()) {
-                            cfgConnRels.add(vifRel);
-                        }
-                        allCFGConns.put(srcCFG.getEndNode(), cfgConnRels);
-                    }
-                }
-            }
-
-
-
-
+        if (r.isType(RelTypes.varWrite)) {
+            srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.vwSource);
+            dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.vwDestination);
+        } else if (r.isType(RelTypes.parWrite)) {
+            srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.pwSource);
+            dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.pwDestination);
+        } else if (r.isType(RelTypes.retWrite)) {
+            srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.rwSource);
+            dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.rwDestination);
+        } else if (r.isType(RelTypes.varInfFunc)) {
+            srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.vifSource);
+            dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.vifDestination);
+        } else if (r.isType(RelTypes.varInfluence)) {
+            srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.viSource);
+            dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.viDestination);
         }
 
-        return allCFGConns;
+        for (Relationship srcCFG : srcCFGs) {
+            for (Relationship dstCFG : dstCFGs) {
+
+                boolean addNode = false;
+
+                if (r.isType(RelTypes.varWrite)) {
+                    addNode = srcCFG.getEndNode().equals(dstCFG.getEndNode());
+                } else if (r.isType(RelTypes.parWrite) || r.isType(RelTypes.retWrite)) {
+
+                    Iterable<Relationship> nextCFGRels = srcCFG.getEndNode().getRelationships(Direction.OUTGOING,
+                            RelTypes.nextCFGBlock);
+
+                    for (Relationship nextCFGRel : nextCFGRels) {
+                        if (dstCFG.getEndNode().equals(nextCFGRel.getEndNode())) {
+                            if (r.isType(RelTypes.parWrite)) {
+                                addNode = (nextCFGRel.hasProperty("cfgInvoke") &&
+                                        nextCFGRel.getProperty("cfgInvoke").equals("1"));
+                            } else {
+                                addNode = (nextCFGRel.hasProperty("cfgReturn") &&
+                                        nextCFGRel.getProperty("cfgReturn").equals("1"));
+                            }
+
+                            if (addNode) {break;}
+
+                        }
+                    }
+
+                }  else if (r.isType(RelTypes.varInfFunc) || r.isType(RelTypes.varInfluence)) {
+                    PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
+                            new BasicEvaluationContext(tx, db),
+                            buildPathExpander("nextCFGBlock>"), (int) Integer.MAX_VALUE
+                    );
+                    Path vifCFG = algo.findSinglePath(srcCFG.getEndNode(), dstCFG.getEndNode());
+                    addNode = (vifCFG != null);
+                }
+
+                if (addNode) {
+                    if (first) {
+                        cfgNodes.add(List.of(dstCFG.getEndNode(), srcCFG.getEndNode()));
+                    } else {
+                        if (candidatePath.hasCFG(srcCFG.getEndNode())) {
+                            cfgNodes.add(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()));
+                        }
+                    }
+                }
+
+            }
+        }
+
+        return cfgNodes;
+
 
     }
 
     // helper function: return start and end CFG nodes along with the connections
     // return: a hashmap of CFG node as key and associated list of CFG relationships as value
-    public HashMap<Node, ArrayList<Relationship>> getParWriteConnectionNodes(Relationship r, boolean first) {
+    public HashSet<List<Node>> getParWriteConnectionNodes(Relationship r, CandidatePath candidatePath,
+                                                          boolean first) {
 
-        //HashMap<Node, ArrayList<Relationship>> srcCFGConns = new HashMap<>();
-        HashMap<Node, ArrayList<Relationship>> allCFGConns = new HashMap<>();
+        HashSet<List<Node>> cfgNodes = new HashSet<>();
 
          if (r.isType(gmDataflowPath.RelTypes.parWrite)) {
              Iterable<Relationship> targetCFGs;
@@ -489,14 +442,19 @@ public class gmDataflowPath {
              }
 
             for (Relationship targetCFG : targetCFGs) {
-                ArrayList<Relationship> relatedCFG = new ArrayList<>();
-                relatedCFG.add(targetCFG);
-                allCFGConns.put(targetCFG.getEndNode(), relatedCFG);
+                if (first) {
+                    if (candidatePath.hasCFG(targetCFG.getEndNode())) {
+                        cfgNodes.add(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()));
+                    }
+                } else {
+                    cfgNodes.add(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()));
+                }
+
             }
 
         }
 
-        return allCFGConns;
+        return cfgNodes;
 
     }
 
