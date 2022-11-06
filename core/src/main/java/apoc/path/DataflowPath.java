@@ -137,63 +137,43 @@ public class DataflowPath {
                                  @Name("startEdge") Relationship startEdge, @Name("endEdge") Relationship endEdge,
                                  @Name("cfgCheck") boolean cfgCheck) {
 
-        /**Node start;
+        //Node start;
         Node end;
-        int category;
+        DataflowType category;  // indicating what type of dataflow path we are working with
 
         // define needed variables
         HashSet<Relationship> visitedEdges = new HashSet<Relationship>();
-        Queue<ArrayList<Relationship>> queuePath = new LinkedList<>();
-        ArrayList<Relationship> curRels = new ArrayList<Relationship>();
-        Relationship vifEdge = null;
-        PathImpl.Builder builder;
+        Queue<CandidatePath> queuePath = new LinkedList<>();
+        CandidatePath curPath = null;
 
-        List<List<Relationship>> returnRels = new ArrayList<List<Relationship>>();
+        List<CandidatePath> returnCandidates = new ArrayList<CandidatePath>();
 
-
-        if ((startNode != null) && (endNode != null)) {         // dataflow in middle component
-            start = startNode;
+        if ((startNode != null) && (endNode != null)) {         // dataflow in middle components
             end = endNode;
-            category = 1;
-            builder = new PathImpl.Builder(startNode);
+            category = DataflowType.INTRA;
         } else if ((startNode != null) && (endEdge != null)) {  // suffix
-            start = startNode;
             end = endEdge.getStartNode();
-            category = 2;
-            builder = new PathImpl.Builder(startNode);
-            vifEdge = endEdge;
+            category = DataflowType.SUFFIX;
         } else if ((startEdge != null) && (endNode != null)) {  // prefix
-            start = startEdge.getEndNode();
             end = endNode;
-            category = 3;
-            curRels.add(startEdge);
-            queuePath.add(curRels);
-            builder = new PathImpl.Builder(startEdge.getStartNode());
+            category = DataflowType.PREFIX;
+            curPath = new CandidatePath(startEdge);
+            queuePath.add(curPath);
         } else {                                                // not valid
             return null;
-        }
-
-        // If no further search is required (start equals to end)
-        // nothing else will be shorter than this
-        if ((start.equals(end))) {
-            if (vifEdge != null) {
-                curRels.add(vifEdge);
-            }
-            return List.of(buildPath(builder, curRels));
         }
 
         Iterable<Relationship> dataflowRels;
 
         // if it is not prefix, because we already have a starting edge for prefix, no need to look for the first
-        if (category != 3) {
-            dataflowRels = getNextRels(start, false);
+        if (category != DataflowType.PREFIX) {
+            dataflowRels = getNextRels(startNode, false);
 
             // add the relationships connected to start node
             for (Relationship dataflowRel : dataflowRels) {
                 if (!visitedEdges.contains(dataflowRel)) {
-                    ArrayList<Relationship> relList = new ArrayList<Relationship>();
-                    relList.add(dataflowRel);
-                    queuePath.add(relList);
+                    CandidatePath candidatePath = new CandidatePath(dataflowRel);
+                    queuePath.add(candidatePath);
                 }
             }
         }
@@ -202,13 +182,14 @@ public class DataflowPath {
         List<Relationship> cfgPath = null;
         int pathLen = -1;
         boolean foundPath = false;
+
         // keep track of visited relationships at current length
         HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
 
         while (!queuePath.isEmpty()) {
-            // get first ArrayList<Relationship> item off of queuePath
-            curRels = queuePath.poll(); // get the array of varWrite-parWrite relationship
-            int curLen = curRels.size();
+
+            curPath = queuePath.poll();
+            int curLen = curPath.getPathSize();
 
             if (foundPath && curLen > pathLen) {
                 // if path has been found and current path is longer than found path, can break
@@ -222,103 +203,48 @@ public class DataflowPath {
             }
             pathLen = curLen;
 
-            // get the last relationship in the ArrayList path
-            Relationship curRel = curRels.get(curRels.size()-1);
-            Node nextNode = curRel.getEndNode();
+            // continue searching only if does not require cfg check or cfg check passes
+            if ((!cfgCheck) || (getCFGPath(curPath))) {
 
-            // check size of existing path
-            if (curRels.size() == 1) {
-                // if end node matches and length of path is 1 then return path without verifying CFG
-                if (nextNode.equals(end)) {
+                visitedEdge.add(curPath.getLastRel());
 
-                    // If suffix, then we need to do an additional CFG check before return
-                    if ((vifEdge != null) && (cfgCheck)) {
-                        cfgPath = getCFGPath(curRel, vifEdge);
-                    } else {
-                        cfgPath = new ArrayList<Relationship>();
-                    }
+                // check if we reach end node
+                if (curPath.getEndNode().equals(end)) {
 
-                    if ((!cfgCheck) || (cfgPath != null)) {
-                        if (vifEdge != null) {curRels.add(vifEdge); }
-                        returnRels.add(curRels);
-                        foundPath = true;
-                    }
-
-                    continue;
-
-                // otherwise, add the relationship connected to the next node to the queue
-                // then continue with the search
-                } else {
-                    visitedEdge.add(curRel);
-                    dataflowRels = getNextRels(nextNode, false);
-                    for (Relationship dataflowRel : dataflowRels) {
-                        // only add unused relationships
-                        if (!visitedEdges.contains(dataflowRel)) {
-                            ArrayList<Relationship> newCurRels = new ArrayList<Relationship>(curRels);
-                            newCurRels.add(dataflowRel);
-                            queuePath.add(newCurRels);
+                    if (category == DataflowType.SUFFIX) {
+                        CandidatePath vifPath = new CandidatePath(curPath, endEdge);
+                        if ((!cfgCheck) || (getCFGPath(vifPath))) {
+                            // build path, and return (exit)
+                            foundPath = true;
+                            returnCandidates.add(vifPath);
                         }
-                    }
-                    continue;
-                }
-            }
-
-            // if path contains 2 or more relationships, then we need to verify the cfg path prior to adding
-            Relationship prevRel = curRels.get(curRels.size()-2);
-
-            if (cfgCheck) {
-                cfgPath = getCFGPath(prevRel, curRel);
-            } else {
-                cfgPath = new ArrayList<Relationship>();
-            }
-
-            // if there exists a CFG path, then this is a valid path, and we can continue, otherwise drop path
-            if (cfgPath != null) {
-                // since CFG has been verified, then prevRel is confirmed to be visited and exited
-                visitedEdge.add(prevRel);
-
-                // if the nextNode happens to be equal to end node, then we found the path
-                if (nextNode.equals(end)) {
-
-                    // If suffix, then we need to do an additional CFG check before return
-                    if ((vifEdge != null) && (cfgCheck)) {
-                        cfgPath = getCFGPath(curRel, vifEdge);
                     } else {
-                        cfgPath = new ArrayList<Relationship>();
-                    }
-
-                    if ((!cfgCheck) || (cfgPath != null)) {
-                        if (vifEdge != null) {curRels.add(vifEdge); }
-                        returnRels.add(curRels);
+                        // build path, and return (exit)
                         foundPath = true;
+                        returnCandidates.add(curPath);
                     }
-
-                    continue;
                 }
 
-                // otherwise keep looking
-                dataflowRels = getNextRels(nextNode, false);
-                // only add not visited Nodes
+                dataflowRels = getNextRels(curPath.getEndNode(), false);
                 for (Relationship dataflowRel : dataflowRels) {
                     if (!visitedEdges.contains(dataflowRel)) {
-                        ArrayList<Relationship> newCurRels = new ArrayList<Relationship>(curRels);
-                        newCurRels.add(dataflowRel);
-                        queuePath.add(newCurRels);
+                        CandidatePath newCandidatePath = new CandidatePath(curPath, dataflowRel);
+                        queuePath.add(newCandidatePath);
                     }
                 }
+
             }
 
         }
 
         List<Path> returnPaths = new ArrayList<Path>();
-        for (List<Relationship> rels : returnRels) {
-            if ((rels != null) && (rels.size() > 0)) {
-                returnPaths.add(buildPath(rels.get(0).getStartNode(), (ArrayList<Relationship>) rels));
+        for (CandidatePath returnCandidate : returnCandidates) {
+            if (returnCandidate.getPathSize() > 0) {
+                returnPaths.add(returnCandidate.buildPath());
             }
         }
-        return returnPaths;**/
 
-        return new ArrayList<>();
+        return returnPaths;
 
     }
 
