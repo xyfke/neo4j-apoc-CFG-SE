@@ -18,7 +18,7 @@ public class DataflowPath {
     public Transaction tx;
 
     @UserFunction
-    @Description("apoc.path.dataflowPath(startNode, endNode, startEdge, endEdge, cfgCheck) - finds a dataflow path consisting of dataflow relationships from one variable to another")
+    @Description("apoc.path.dataflowPath(startNode, endNode, startEdge, endEdge, cfgCheck) - finds a dataflow path using forward propagation")
     public Path dataflowPath(@Name("startNode") Node startNode, @Name("endNode") Node endNode,
                            @Name("startEdge") Relationship startEdge, @Name("endEdge") Relationship endEdge,
                            @Name("cfgCheck") boolean cfgCheck) {
@@ -109,7 +109,7 @@ public class DataflowPath {
     }
 
     @UserFunction
-    @Description("apoc.path.allDataflowPaths(startNode, endNode, startEdge, endEdge, cfgCheck) - finds a dataflow path consisting of dataflow relationships from one variable to another")
+    @Description("apoc.path.allDataflowPaths(startNode, endNode, startEdge, endEdge, cfgCheck) - finds all shortest dataflow paths using forward propagation")
     public List<Path> allDataflowPaths(@Name("startNode") Node startNode, @Name("endNode") Node endNode,
                                  @Name("startEdge") Relationship startEdge, @Name("endEdge") Relationship endEdge,
                                  @Name("cfgCheck") boolean cfgCheck) {
@@ -228,8 +228,7 @@ public class DataflowPath {
 
     // helper function: find and verify CFG path
     // returns:
-    //      - list of relationships: there is a valid path
-    //      - null: invalid path
+    //      - boolean: indicating candidatePath is feasible
     public boolean getCFGPath(CandidatePath candidatePath) {
 
         if (candidatePath.getPathSize() < 2) {

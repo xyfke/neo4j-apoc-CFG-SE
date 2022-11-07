@@ -34,6 +34,8 @@ public class CFGValidationHelper {
         PREFIX, SUFFIX, INTRA;
     }
 
+    // helper function: return start and end CFG nodes along with the connections
+    // return: a hashset of CFG nodes
     public static HashSet<List<Node>> getConnectionNodes(Relationship r, CandidatePath candidatePath,
                                                          boolean isFirst, boolean isReverse) {
 
@@ -125,8 +127,8 @@ public class CFGValidationHelper {
 
     }
 
-    // helper function: return start and end CFG nodes along with the connections
-    // return: a hashmap of CFG node as key and associated list of CFG relationships as value
+    // helper function: return start and end CFG nodes along with the connections for gm parWrite
+    // return: a hashset of CFG nodes
     public static HashSet<List<Node>> getParWriteConnectionNodes(Relationship r, CandidatePath candidatePath,
                                                           boolean first) {
 
@@ -180,6 +182,8 @@ public class CFGValidationHelper {
         return builder.build();
     }
 
+    // helper function: finds outgoing dataflow edge connected to current node
+    // return: a list of these outgoing dataflow edge
     public static Iterable<Relationship> getNextRels(Node current, boolean isPrefix) {
         if (isPrefix) {
             return current.getRelationships(Direction.OUTGOING, RelTypes.varWrite);
@@ -188,8 +192,8 @@ public class CFGValidationHelper {
         }
     }
 
-    // helper function: finds outgoing dataflow edge connected to current node
-    // return: a list of these outgoing dataflow edge
+    // helper function: finds incoming dataflow edge connected to current node
+    // return: a list of these incoming dataflow edge
     public static Iterable<Relationship> getPrevRels(Node current, boolean isPrefix) {
         if (isPrefix) {
             return current.getRelationships(Direction.INCOMING, RelTypes.varWrite);

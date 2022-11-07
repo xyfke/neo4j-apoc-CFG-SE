@@ -15,12 +15,14 @@ public class CandidatePath {
     public HashSet<Node> validCFGs;
     public int pathSize;
 
+    // constructor for a single edge
     public CandidatePath(Relationship startEdge) {
         this.partialResult = new ArrayList(List.of(startEdge));
         this.validCFGs = new HashSet<Node>();
         this.pathSize = 1;
     }
 
+    // constructor to create new path from old path plus a single edge
     public CandidatePath(CandidatePath oldPath, Relationship newEdge) {
         this.partialResult = new ArrayList(oldPath.partialResult);
         this.partialResult.add(newEdge);
@@ -28,10 +30,8 @@ public class CandidatePath {
         this.pathSize = oldPath.getPathSize() + 1;
     }
 
-    public void updateCFG(HashSet validCFGs) {
-        this.validCFGs = validCFGs;
-    }
-
+    // return path information
+    // get the last relationship in the path
     public Relationship getLastRel() {
         if (this.pathSize >= 1) {
             return this.partialResult.get(this.pathSize-1);
@@ -40,6 +40,7 @@ public class CandidatePath {
         }
     }
 
+    // get the second last relationship in the path
     public Relationship getSecondLastRel() {
         if (this.pathSize >= 2) {
             return this.partialResult.get(this.pathSize-2);
@@ -48,6 +49,7 @@ public class CandidatePath {
         }
     }
 
+    // get the end node of last relationship
     public Node getEndNode() {
         if (this.pathSize >= 1) {
             return this.partialResult.get(this.pathSize-1).getEndNode();
@@ -56,6 +58,7 @@ public class CandidatePath {
         }
     }
 
+    // get the start node of the last relationship
     public Node getStartNode() {
         if (this.pathSize >= 1) {
             return this.partialResult.get(this.pathSize-1).getStartNode();
@@ -64,23 +67,31 @@ public class CandidatePath {
         }
     }
 
+    // get length of path
     public int getPathSize() {
         return this.pathSize;
     }
 
+    // CFG functions:
+    // return valid CFGs
+    public void updateCFG(HashSet validCFGs) {
+        this.validCFGs = validCFGs;
+    }
+
+    // whether or not there are related CFG Blocks
     public boolean isCFGEmpty() {
         return this.validCFGs.isEmpty();
     }
 
-    public ArrayList<Relationship> getPartialResult() {
-        return this.partialResult;
+    public boolean hasCFG(Node cfgNode) {
+        if (this.isCFGEmpty()) {
+            return true;
+        } else {
+            return this.validCFGs.contains(cfgNode);
+        }
     }
 
-    public void addToPartialResult(Relationship edge) {
-        this.partialResult.add(edge);
-        this.pathSize += 1;
-    }
-
+    // return path build from partialResult variable
     public Path buildPath() {
         PathImpl.Builder builder = new PathImpl.Builder(this.partialResult.get(0).getStartNode());
 
@@ -92,6 +103,7 @@ public class CandidatePath {
 
     }
 
+    // return path build backward from partialResult variable
     public Path backwardBuildPath() {
         PathImpl.Builder builder = new PathImpl.Builder(this.partialResult.get(this.pathSize-1).getStartNode());
 
@@ -103,12 +115,6 @@ public class CandidatePath {
 
     }
 
-    public boolean hasCFG(Node cfgNode) {
-        if (this.isCFGEmpty()) {
-            return true;
-        } else {
-            return this.validCFGs.contains(cfgNode);
-        }
-    }
+
 
 }

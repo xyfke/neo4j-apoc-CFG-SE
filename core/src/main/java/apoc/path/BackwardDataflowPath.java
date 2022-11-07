@@ -21,7 +21,7 @@ public class BackwardDataflowPath {
     public Transaction tx;
 
     @UserFunction
-    @Description("apoc.path.backwardDataflowPath(startNode, endNode, startEdge, endEdge, cfgCheck) - finds a dataflow path consisting of dataflow relationships from one variable to another")
+    @Description("apoc.path.backwardDataflowPath(startNode, endNode, startEdge, endEdge, cfgCheck) - finds a dataflow path using backward propagation")
     public Path backwardDataflowPath(@Name("startNode") Node startNode, @Name("endNode") Node endNode,
                              @Name("startEdge") Relationship startEdge, @Name("endEdge") Relationship endEdge,
                              @Name("cfgCheck") boolean cfgCheck) {
@@ -112,7 +112,7 @@ public class BackwardDataflowPath {
     }
 
     @UserFunction
-    @Description("apoc.path.allBackwardDataflowPath(startNode, endNode, startEdge, endEdge, cfgCheck) - finds a dataflow path consisting of dataflow relationships from one variable to another")
+    @Description("apoc.path.allBackwardDataflowPath(startNode, endNode, startEdge, endEdge, cfgCheck) - finds all shortest dataflow paths using backward propagation")
     public List<Path> allBackwardDataflowPaths(@Name("startNode") Node startNode, @Name("endNode") Node endNode,
                                      @Name("startEdge") Relationship startEdge, @Name("endEdge") Relationship endEdge,
                                      @Name("cfgCheck") boolean cfgCheck) {
@@ -230,8 +230,7 @@ public class BackwardDataflowPath {
 
     // helper function: find and verify CFG path
     // returns:
-    //      - list of relationships: there is a valid path
-    //      - null: invalid path
+    //      - boolean: indicating candidatePath is feasible
     public boolean backwardGetCFGPath(CandidatePath candidatePath) {
 
         if (candidatePath.getPathSize() < 2) {
