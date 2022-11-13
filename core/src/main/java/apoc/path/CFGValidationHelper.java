@@ -7,6 +7,7 @@ import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.procedure.Context;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
@@ -24,7 +25,7 @@ public class CFGValidationHelper {
     {
         varWrite, vwSource, vwDestination,
         parWrite, pwSource, pwDestination,
-        retWrite, rwSource, rwDestination,
+        retWrite, rwSource, rwDestination, retSource, retDestination,
         varInfFunc, vifSource, vifDestination,
         varInfluence, viSource, viDestination,
         nextCFGBlock, pubVar, pubTarget;
@@ -36,11 +37,11 @@ public class CFGValidationHelper {
 
     // helper function: return start and end CFG nodes along with the connections
     // return: a hashset of CFG nodes
-    public static HashSet<List<Node>> getConnectionNodes(Relationship r, CandidatePath candidatePath,
+    public static HashMap<List<Node>, Relationship> getConnectionNodes(Relationship r, CandidatePath candidatePath,
                                                          boolean isFirst, boolean isReverse) {
 
         //ArrayList<Node> cfgNodes = new ArrayList<>();
-        HashSet<List<Node>> cfgNodes = new HashSet<>();   // HashSet<[srcNode, dstNode]> (need dstNode to update CFG)
+        HashMap<List<Node>, Relationship> cfgNodes = new HashMap<>();   // HashSet<[srcNode, dstNode]> (need dstNode to update CFG)
         Iterable<Relationship> srcCFGs = null;
         Iterable<Relationship> dstCFGs = null;
 
@@ -56,9 +57,9 @@ public class CFGValidationHelper {
                     RelTypes.pwDestination);
         } else if (r.isType(RelTypes.retWrite)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.rwSource);
+                    RelTypes.retSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.rwDestination);
+                    RelTypes.retDestination);
         } else if (r.isType(RelTypes.varInfFunc)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
                     RelTypes.vifSource);
@@ -75,6 +76,7 @@ public class CFGValidationHelper {
             for (Relationship dstCFG : dstCFGs) {
 
                 boolean addNode = false;
+                Relationship nextCFGBlockEdge = null;
 
                 if (r.isType(RelTypes.varWrite)) {
                     addNode = srcCFG.getEndNode().equals(dstCFG.getEndNode());
@@ -88,9 +90,11 @@ public class CFGValidationHelper {
                             if (r.isType(RelTypes.parWrite)) {
                                 addNode = (nextCFGRel.hasProperty("cfgInvoke") &&
                                         nextCFGRel.getProperty("cfgInvoke").equals("1"));
+                                nextCFGBlockEdge = nextCFGRel;
                             } else {
                                 addNode = (nextCFGRel.hasProperty("cfgReturn") &&
                                         nextCFGRel.getProperty("cfgReturn").equals("1"));
+                                nextCFGBlockEdge = nextCFGRel;
                             }
 
                             if (addNode) {break;}
@@ -108,16 +112,24 @@ public class CFGValidationHelper {
                 }
 
                 if (addNode) {
+                    if ((!isFirst) || candidatePath.hasCFG(srcCFG.getEndNode())) {
+                        cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), nextCFGBlockEdge);
+                    } else if ((isFirst) || candidatePath.hasCFG(dstCFG.getEndNode())) {
+                        cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), nextCFGBlockEdge);
+                    }
+                }
+
+                /**if (addNode) {
                     if (isFirst) {
                         if ((isReverse) || (candidatePath.hasCFG(dstCFG.getEndNode()))) {
-                            cfgNodes.add(List.of(dstCFG.getEndNode(), srcCFG.getEndNode()));
+                            cfgNodes.put(List.of(dstCFG.getEndNode(), srcCFG.getEndNode()), nextCFGBlockEdge);
                         }
                     } else {
                         if ((!isReverse) || (candidatePath.hasCFG(srcCFG.getEndNode()))) {
-                            cfgNodes.add(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()));
+                            cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), null);
                         }
                     }
-                }
+                }**/
 
             }
         }
@@ -129,10 +141,11 @@ public class CFGValidationHelper {
 
     // helper function: return start and end CFG nodes along with the connections for gm parWrite
     // return: a hashset of CFG nodes
-    public static HashSet<List<Node>> getParWriteConnectionNodes(Relationship r, CandidatePath candidatePath,
-                                                          boolean first) {
+    public static HashMap<List<Node>, Relationship> getParWriteConnectionNodes(Relationship r,
+                                                                               CandidatePath candidatePath,
+                                                                                boolean first) {
 
-        HashSet<List<Node>> cfgNodes = new HashSet<>();
+        HashMap<List<Node>, Relationship> cfgNodes = new HashMap<>();
 
         if (r.isType(RelTypes.parWrite)) {
             Iterable<Relationship> targetCFGs;
@@ -147,10 +160,10 @@ public class CFGValidationHelper {
             for (Relationship targetCFG : targetCFGs) {
                 if (first) {
                     if (candidatePath.hasCFG(targetCFG.getEndNode())) {
-                        cfgNodes.add(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()));
+                        cfgNodes.put(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()), null);
                     }
                 } else {
-                    cfgNodes.add(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()));
+                    cfgNodes.put(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()), null);
                 }
 
             }

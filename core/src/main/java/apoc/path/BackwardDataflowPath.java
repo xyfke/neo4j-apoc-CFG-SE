@@ -246,10 +246,10 @@ public class BackwardDataflowPath {
         );
 
         // obtain cfg nodes and relationships associated with r1 and r2
-        HashSet<List<Node>> startCFGs = CFGValidationHelper.getConnectionNodes(curRel, candidatePath,
-                true, true);
-        HashSet<List<Node>> endCFGs = CFGValidationHelper.getConnectionNodes(nextRel, candidatePath,
-                false, true);
+        HashMap<List<Node>, Relationship> startCFGs = CFGValidationHelper.getConnectionNodes(curRel,
+                candidatePath, true, true);
+        HashMap<List<Node>, Relationship> endCFGs = CFGValidationHelper.getConnectionNodes(nextRel,
+                candidatePath, false, true);
 
         Path cfgPath = null;
         Node n1 = null;
@@ -263,9 +263,10 @@ public class BackwardDataflowPath {
 
         // if we can find a path from the cfg node associated with r1 to the cfg node associated
         // with r2, then there exists a cfg path
-        for (List<Node> listStartCFG : startCFGs) {
+        for (List<Node> listStartCFG : startCFGs.keySet()) {
             Node startCFGNode = listStartCFG.get(0);
-            for (List<Node> listEndCFG : endCFGs) {
+            Relationship nextCFGBlockEdge = startCFGs.get(listStartCFG);
+            for (List<Node> listEndCFG : endCFGs.keySet()) {
                 cfgPath = algo.findSinglePath(startCFGNode, listEndCFG.get(0));
                 if (cfgPath != null) {
                     acceptedCFGStart.add(listStartCFG.get(1));

@@ -6,6 +6,7 @@ import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphdb.*;
 import org.neo4j.procedure.*;
 import apoc.path.CFGValidationHelper.DataflowType;
+import apoc.algo.CFGShortestPath;
 
 import java.util.*;
 
@@ -238,18 +239,35 @@ public class DataflowPath {
         Relationship curRel = candidatePath.getSecondLastRel();
         Relationship nextRel = candidatePath.getLastRel();
 
-        PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
+        /**PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
                 new BasicEvaluationContext(tx, db),
-                CFGValidationHelper.buildPathExpander("nextCFGBlock>"), (int) Integer.MAX_VALUE
-        );
+                CFGValidationHelper.buildPathExpander("nextCFGBlock>"),
+                (int) Integer.MAX_VALUE
+        );**/
 
         // obtain cfg nodes and relationships associated with r1 and r2
-        HashSet<List<Node>> startCFGs = CFGValidationHelper.getConnectionNodes(curRel, candidatePath,
-                true, false);
-        HashSet<List<Node>> endCFGs = CFGValidationHelper.getConnectionNodes(nextRel, candidatePath,
-                false, false);
+        HashMap<List<Node>, Relationship> startCFGs = CFGValidationHelper.getConnectionNodes(curRel,
+                candidatePath, true, false);
+        HashMap<List<Node>, Relationship> endCFGs = CFGValidationHelper.getConnectionNodes(nextRel,
+                candidatePath, false, false);
 
-        Path cfgPath = null;
+        CFGShortestPath cfgShortestPath = new CFGShortestPath(tx);
+        List<Path> validPaths = cfgShortestPath.findPath(startCFGs, endCFGs, candidatePath);
+        HashSet<Node> acceptedCFGEnd = new HashSet<>();
+
+        if (validPaths.isEmpty()) {
+            return false;
+        }
+
+        for (Path validPath : validPaths) {
+            acceptedCFGEnd.add(validPath.endNode());
+        }
+        candidatePath.updateCFG(acceptedCFGEnd);
+
+        return true;
+
+
+        /**Path cfgPath = null;
         Node n1 = null;
         Node n2 = null;
 
@@ -261,19 +279,19 @@ public class DataflowPath {
 
         // if we can find a path from the cfg node associated with r1 to the cfg node associated
         // with r2, then there exists a cfg path
-        for (List<Node> listStartCFG : startCFGs) {
+        for (List<Node> listStartCFG : startCFGs.keySet()) {
             Node startCFGNode = listStartCFG.get(0);
-            for (List<Node> listEndCFG : endCFGs) {
+            for (List<Node> listEndCFG : endCFGs.keySet()) {
                 cfgPath = algo.findSinglePath(startCFGNode, listEndCFG.get(0));
                 if (cfgPath != null) {
                     acceptedCFGEnd.add(listEndCFG.get(1));
                 }
             }
-        }
+        }**/
 
-        candidatePath.updateCFG(acceptedCFGEnd);
+        //candidatePath.updateCFG(acceptedCFGEnd);
 
-        return !acceptedCFGEnd.isEmpty();
+        //return !acceptedCFGEnd.isEmpty();
 
     }
 

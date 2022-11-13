@@ -216,10 +216,10 @@ public class BackwardGmDataflowPath {
         );
 
         // obtain cfg nodes and relationships associated with r1 and r2
-        HashSet<List<Node>> startCFGs = (isStartPW) ?
+        HashMap<List<Node>, Relationship> startCFGs = (isStartPW) ?
                 CFGValidationHelper.getParWriteConnectionNodes(curRel, candidatePath, true) :
                 CFGValidationHelper.getConnectionNodes(curRel, candidatePath, true, true);
-        HashSet<List<Node>> endCFGs = (isEndPW) ?
+        HashMap<List<Node>, Relationship> endCFGs = (isEndPW) ?
                 CFGValidationHelper.getParWriteConnectionNodes(nextRel, candidatePath, false) :
                 CFGValidationHelper.getConnectionNodes(nextRel, candidatePath, false, true);
 
@@ -235,9 +235,9 @@ public class BackwardGmDataflowPath {
 
         // if we can find a path from the cfg node associated with r1 to the cfg node associated
         // with r2, then there exists a cfg path
-        for (List<Node> listStartCFG : startCFGs) {
+        for (List<Node> listStartCFG : startCFGs.keySet()) {
             Node startCFGNode = listStartCFG.get(0);
-            for (List<Node> listEndCFG : endCFGs) {
+            for (List<Node> listEndCFG : endCFGs.keySet()) {
                 cfgPath = algo.findSinglePath(startCFGNode, listEndCFG.get(0));
                 if (cfgPath != null) {
                     acceptedCFGEnd.add(listEndCFG.get(1));
