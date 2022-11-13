@@ -1,5 +1,7 @@
 package apoc.path;
 
+import apoc.algo.CFGBackwardShortestPath;
+import apoc.algo.CFGShortestPath;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
@@ -240,40 +242,23 @@ public class BackwardDataflowPath {
         Relationship nextRel = candidatePath.getSecondLastRel();
         Relationship curRel = candidatePath.getLastRel();
 
-        PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
-                new BasicEvaluationContext(tx, db),
-                CFGValidationHelper.buildPathExpander("nextCFGBlock>"), (int) Integer.MAX_VALUE
-        );
-
         // obtain cfg nodes and relationships associated with r1 and r2
         HashMap<List<Node>, Relationship> startCFGs = CFGValidationHelper.getConnectionNodes(curRel,
                 candidatePath, true, true);
         HashMap<List<Node>, Relationship> endCFGs = CFGValidationHelper.getConnectionNodes(nextRel,
                 candidatePath, false, true);
 
-        Path cfgPath = null;
-        Node n1 = null;
-        Node n2 = null;
+        CFGBackwardShortestPath cfgBackwardShortestPath = new CFGBackwardShortestPath(tx);
+        List<Path> validPaths = cfgBackwardShortestPath.findPath(startCFGs, endCFGs, candidatePath);
+        HashSet<Node> acceptedCFGStart = new HashSet<>();
 
-        if ((startCFGs.isEmpty()) || (endCFGs.isEmpty())) {
+        if (validPaths.isEmpty()) {
             return false;
         }
 
-        HashSet<Node> acceptedCFGStart = new HashSet<>();
-
-        // if we can find a path from the cfg node associated with r1 to the cfg node associated
-        // with r2, then there exists a cfg path
-        for (List<Node> listStartCFG : startCFGs.keySet()) {
-            Node startCFGNode = listStartCFG.get(0);
-            Relationship nextCFGBlockEdge = startCFGs.get(listStartCFG);
-            for (List<Node> listEndCFG : endCFGs.keySet()) {
-                cfgPath = algo.findSinglePath(startCFGNode, listEndCFG.get(0));
-                if (cfgPath != null) {
-                    acceptedCFGStart.add(listStartCFG.get(1));
-                }
-            }
+        for (Path validPath : validPaths) {
+            acceptedCFGStart.add(validPath.endNode());
         }
-
         candidatePath.updateCFG(acceptedCFGStart);
 
         return !acceptedCFGStart.isEmpty();

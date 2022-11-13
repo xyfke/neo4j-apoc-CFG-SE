@@ -25,7 +25,7 @@ public class CFGValidationHelper {
     {
         varWrite, vwSource, vwDestination,
         parWrite, pwSource, pwDestination,
-        retWrite, rwSource, rwDestination, retSource, retDestination,
+        retWrite, rwSource, rwDestination,
         varInfFunc, vifSource, vifDestination,
         varInfluence, viSource, viDestination,
         nextCFGBlock, pubVar, pubTarget;
@@ -57,9 +57,9 @@ public class CFGValidationHelper {
                     RelTypes.pwDestination);
         } else if (r.isType(RelTypes.retWrite)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.retSource);
+                    RelTypes.rwSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.retDestination);
+                    RelTypes.rwDestination);
         } else if (r.isType(RelTypes.varInfFunc)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
                     RelTypes.vifSource);
@@ -112,25 +112,16 @@ public class CFGValidationHelper {
                 }
 
                 if (addNode) {
-                    if ((!isFirst) || candidatePath.hasCFG(srcCFG.getEndNode())) {
-                        cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), nextCFGBlockEdge);
-                    } else if ((isFirst) || candidatePath.hasCFG(dstCFG.getEndNode())) {
-                        cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), nextCFGBlockEdge);
-                    }
-                }
-
-                /**if (addNode) {
-                    if (isFirst) {
-                        if ((isReverse) || (candidatePath.hasCFG(dstCFG.getEndNode()))) {
-                            cfgNodes.put(List.of(dstCFG.getEndNode(), srcCFG.getEndNode()), nextCFGBlockEdge);
+                    if (isReverse) {
+                        if ((!isFirst) || (candidatePath.hasCFG(dstCFG.getEndNode()))) {
+                            cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), nextCFGBlockEdge);
                         }
                     } else {
-                        if ((!isReverse) || (candidatePath.hasCFG(srcCFG.getEndNode()))) {
-                            cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), null);
+                        if ((!isFirst) || (candidatePath.hasCFG(srcCFG.getEndNode()))) {
+                            cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), nextCFGBlockEdge);
                         }
                     }
-                }**/
-
+                }
             }
         }
 

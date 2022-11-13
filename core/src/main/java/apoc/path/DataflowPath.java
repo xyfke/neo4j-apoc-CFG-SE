@@ -239,12 +239,6 @@ public class DataflowPath {
         Relationship curRel = candidatePath.getSecondLastRel();
         Relationship nextRel = candidatePath.getLastRel();
 
-        /**PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
-                new BasicEvaluationContext(tx, db),
-                CFGValidationHelper.buildPathExpander("nextCFGBlock>"),
-                (int) Integer.MAX_VALUE
-        );**/
-
         // obtain cfg nodes and relationships associated with r1 and r2
         HashMap<List<Node>, Relationship> startCFGs = CFGValidationHelper.getConnectionNodes(curRel,
                 candidatePath, true, false);
@@ -265,33 +259,6 @@ public class DataflowPath {
         candidatePath.updateCFG(acceptedCFGEnd);
 
         return true;
-
-
-        /**Path cfgPath = null;
-        Node n1 = null;
-        Node n2 = null;
-
-        if ((startCFGs.isEmpty()) || (endCFGs.isEmpty())) {
-            return false;
-        }
-
-        HashSet<Node> acceptedCFGEnd = new HashSet<>();
-
-        // if we can find a path from the cfg node associated with r1 to the cfg node associated
-        // with r2, then there exists a cfg path
-        for (List<Node> listStartCFG : startCFGs.keySet()) {
-            Node startCFGNode = listStartCFG.get(0);
-            for (List<Node> listEndCFG : endCFGs.keySet()) {
-                cfgPath = algo.findSinglePath(startCFGNode, listEndCFG.get(0));
-                if (cfgPath != null) {
-                    acceptedCFGEnd.add(listEndCFG.get(1));
-                }
-            }
-        }**/
-
-        //candidatePath.updateCFG(acceptedCFGEnd);
-
-        //return !acceptedCFGEnd.isEmpty();
 
     }
 

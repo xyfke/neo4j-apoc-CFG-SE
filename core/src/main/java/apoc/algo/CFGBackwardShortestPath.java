@@ -19,9 +19,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class CFGShortestPath {
+public class CFGBackwardShortestPath {
 
-    //private final EvaluationContext context;
     private final PathExpander expander;
 
     @Context
@@ -30,9 +29,9 @@ public class CFGShortestPath {
     @Context
     public Transaction tx;
 
-    public CFGShortestPath(Transaction tx) {
+    public CFGBackwardShortestPath(Transaction tx) {
         this.tx = tx;
-        expander = buildPathExpander("nextCFGBlock>");
+        expander = buildPathExpander("<nextCFGBlock");
     }
 
     public List<Path> findPath(HashMap<List<Node>, Relationship> cfgStartNodes,
@@ -46,13 +45,13 @@ public class CFGShortestPath {
         // get StartNodes
         for (List<Node> cfgStartNode : cfgStartNodes.keySet()) {
             startNodes.add(cfgStartNode.get(1));
-            Relationship edge = cfgStartNodes.get(cfgStartNode);
-            if (edge != null) { cfgRetInv.add(edge); }
         }
 
         // get EndNodes
         for (List<Node> cfgEndNode : cfgEndNodes.keySet()) {
             endNodes.add(cfgEndNode.get(0));
+            Relationship edge = cfgStartNodes.get(cfgEndNode);
+            if (edge != null) { cfgRetInv.add(edge); }
         }
 
         if ((startNodes.isEmpty()) || (endNodes.isEmpty())) {
@@ -60,12 +59,12 @@ public class CFGShortestPath {
         }
 
         //Transaction transaction = context.transaction();
-        CFGEvaluator evaluator = new CFGEvaluator(candidatePath, endNodes, cfgRetInv);
+        CFGBackwardEvaluator evaluator = new CFGBackwardEvaluator(candidatePath, startNodes, cfgRetInv);
         TraversalDescription td = tx.traversalDescription();
         td = td.breadthFirst().uniqueness(Uniqueness.RELATIONSHIP_PATH)
                 .evaluator(evaluator).expand(this.expander);
 
-        Traverser traverser = td.traverse(startNodes);
+        Traverser traverser = td.traverse(endNodes);
         Stream<Path> results = Iterables.stream(traverser);
         List<Path> path = results.collect(Collectors.toList());
 
@@ -93,32 +92,34 @@ public class CFGShortestPath {
         return builder.build();
     }
 
-    private class CFGEvaluator implements Evaluator {
+    private class CFGBackwardEvaluator implements Evaluator {
 
         private CandidatePath candidatePath;
-        private HashSet<Node> endNodes;
+        private HashSet<Node> startNodes;
         public HashSet<Stack<Relationship>> curCallStacks;
         public HashSet<Node> filterOut;
         public HashSet<Relationship> cfgInvRets;
 
-        public CFGEvaluator(CandidatePath candidatePath, HashSet<Node> endNodes,
-                           HashSet<Relationship> cfgInvRets) {
+        public CFGBackwardEvaluator(CandidatePath candidatePath, HashSet<Node> startNodes,
+                                    HashSet<Relationship> cfgInvRets) {
+
             this.candidatePath = candidatePath;
-            this.endNodes = endNodes;
+            this.startNodes = startNodes;
             this.curCallStacks = candidatePath.callStacks;
             this.filterOut = new HashSet<>();
             this.cfgInvRets = cfgInvRets;
 
             for (Relationship cfgInvRet : cfgInvRets) {
-                if (updateCallStack(cfgInvRet)) {
+                if (updateBackwardCallStack(cfgInvRet)) {
                     this.filterOut.add(cfgInvRet.getEndNode());
                 }
             }
+
         }
+
 
         @Override
         public Evaluation evaluate(Path path) {
-
             if (path.length() == 0) {
                 // if path starts with filter node, then omit completely
                 if (this.filterOut.contains(path.endNode())) {
@@ -126,7 +127,7 @@ public class CFGShortestPath {
                 }
 
                 // otherwise just check for endNodes
-                if (endNodes.contains(path.endNode())) {
+                if (startNodes.contains(path.endNode())) {
                     return Evaluation.of(true, false);
                 } else {
                     return Evaluation.of(false, true);
@@ -138,8 +139,8 @@ public class CFGShortestPath {
                 return Evaluation.of(false, false);
             }
 
-            if (updateCallStack(lastEdge)) {
-                if (endNodes.contains(path.endNode())) {
+            if (updateBackwardCallStack(lastEdge)) {
+                if (startNodes.contains(path.endNode())) {
                     return Evaluation.of(true, false);
                 } else {
                     return Evaluation.of(false, true);
@@ -147,10 +148,9 @@ public class CFGShortestPath {
             } else {
                 return Evaluation.of(false, false);
             }
-
         }
 
-        private boolean updateCallStack(Relationship edge) {
+        private boolean updateBackwardCallStack(Relationship edge) {
 
             boolean continuePath = false;
             boolean isInvoke = false;
@@ -167,7 +167,7 @@ public class CFGShortestPath {
 
             for (Stack<Relationship> callStack : this.curCallStacks) {
                 Relationship endRel = callStack.get(callStack.size()-1);
-                if (isInvoke) {
+                if (isReturn) {
                     if (compareFunction(endRel.getEndNode(), edge.getStartNode())) {
                         Stack<Relationship> newCallStack = new Stack<>();
                         newCallStack.addAll(callStack);
@@ -175,8 +175,8 @@ public class CFGShortestPath {
                         this.curCallStacks.add(newCallStack);
                         continuePath = true;
                     }
-                } else if (isReturn) {
-                    if (endRel.getStartNode().equals(edge.getEndNode())) {
+                } else if (isInvoke) {
+                    if (endRel.getEndNode().equals(edge.getStartNode())) {
                         callStack.pop();
                         continuePath = true;
                     }
@@ -184,7 +184,7 @@ public class CFGShortestPath {
             }
 
 
-            if ((!continuePath) && (isInvoke)) {
+            if ((!continuePath) && (isReturn)) {
                 Stack<Relationship> newCallStack = new Stack<>();
                 newCallStack.add(edge);
                 this.curCallStacks.add(newCallStack);
@@ -206,7 +206,5 @@ public class CFGShortestPath {
             return functionNameNode1[0].equals(functionNameNode2[0]);
         }
     }
-
-
 
 }
