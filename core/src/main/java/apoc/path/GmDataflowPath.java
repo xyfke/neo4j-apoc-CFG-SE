@@ -239,11 +239,11 @@ public class GmDataflowPath {
         // if we can find a path from the cfg node associated with r1 to the cfg node associated
         // with r2, then there exists a cfg path
         for (List<Node> listStartCFG : startCFGs) {
-            Node startCFGNode = listStartCFG.get(0);
+            Node startCFGNode = listStartCFG.get(1);
             for (List<Node> listEndCFG : endCFGs) {
                 cfgPath = algo.findSinglePath(startCFGNode, listEndCFG.get(0));
                 if (cfgPath != null) {
-                    acceptedCFGEnd.add(listEndCFG.get(1));
+                    acceptedCFGEnd.add(listStartCFG.get(1));
                 }
             }
         }

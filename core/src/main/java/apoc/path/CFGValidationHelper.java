@@ -108,12 +108,12 @@ public class CFGValidationHelper {
                 }
 
                 if (addNode) {
-                    if (isFirst) {
-                        if ((isReverse) || (candidatePath.hasCFG(dstCFG.getEndNode()))) {
-                            cfgNodes.add(List.of(dstCFG.getEndNode(), srcCFG.getEndNode()));
+                    if (isReverse) {
+                        if ((!isFirst) || (candidatePath.hasCFG(dstCFG.getEndNode()))) {
+                            cfgNodes.add(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()));
                         }
                     } else {
-                        if ((!isReverse) || (candidatePath.hasCFG(srcCFG.getEndNode()))) {
+                        if ((!isFirst) || (candidatePath.hasCFG(srcCFG.getEndNode()))) {
                             cfgNodes.add(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()));
                         }
                     }
