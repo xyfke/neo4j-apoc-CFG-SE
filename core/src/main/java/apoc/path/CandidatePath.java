@@ -16,14 +16,14 @@ public class CandidatePath {
     public ArrayList<Relationship> partialResult;
     public HashSet<Node> validCFGs;
     public int pathSize;
-    public HashSet<Stack<Relationship>> callStacks;
+    public ArrayList<Stack<Relationship>> callStacks;
 
     // constructor for a single edge
     public CandidatePath(Relationship startEdge) {
         this.partialResult = new ArrayList(List.of(startEdge));
         this.validCFGs = new HashSet<Node>();
         this.pathSize = 1;
-        this.callStacks = new HashSet<>();
+        this.callStacks = new ArrayList<>();
     }
 
     // constructor to create new path from old path plus a single edge
@@ -34,7 +34,7 @@ public class CandidatePath {
         this.pathSize = oldPath.getPathSize() + 1;
 
         // get all previous callStacks
-        this.callStacks = new HashSet<>();
+        this.callStacks = new ArrayList<>();
         for (Stack<Relationship> callStack : oldPath.callStacks) {
             Stack<Relationship> tempStack = new Stack<>();
             tempStack.addAll(callStack);

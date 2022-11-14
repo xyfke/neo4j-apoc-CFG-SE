@@ -97,7 +97,7 @@ public class CFGShortestPath {
 
         private CandidatePath candidatePath;
         private HashSet<Node> endNodes;
-        public HashSet<Stack<Relationship>> curCallStacks;
+        public ArrayList<Stack<Relationship>> curCallStacks;
         public HashSet<Node> filterOut;
         public HashSet<Relationship> cfgInvRets;
 
@@ -155,7 +155,9 @@ public class CFGShortestPath {
             boolean continuePath = false;
             boolean isInvoke = false;
             boolean isReturn = false;
-            boolean addedToStack = false;
+
+            ArrayList<Stack<Relationship>> addCallStack = new ArrayList<>();
+            ArrayList<Stack<Relationship>> removeStack = new ArrayList<>();
 
             if (edge.hasProperty("cfgInvoke") && (edge.getProperty("cfgInvoke").equals("1"))) {
                 isInvoke = true;
@@ -172,7 +174,8 @@ public class CFGShortestPath {
                         Stack<Relationship> newCallStack = new Stack<>();
                         newCallStack.addAll(callStack);
                         newCallStack.add(edge);
-                        this.curCallStacks.add(newCallStack);
+                        addCallStack.add(newCallStack);
+                        removeStack.add(callStack);
                         continuePath = true;
                     }
                 } else if (isReturn) {
@@ -193,6 +196,8 @@ public class CFGShortestPath {
 
             // get rid of empty call stacks
             this.curCallStacks.removeIf(Stack<Relationship>::isEmpty);
+            this.curCallStacks.removeAll(removeStack);
+            this.curCallStacks.addAll(addCallStack);
 
             return continuePath;
 
