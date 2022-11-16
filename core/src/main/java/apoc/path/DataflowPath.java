@@ -1,5 +1,6 @@
 package apoc.path;
 
+import com.google.common.collect.Iterables;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
@@ -9,6 +10,7 @@ import apoc.path.CFGValidationHelper.DataflowType;
 import apoc.algo.CFGShortestPath;
 
 import java.util.*;
+import java.util.stream.StreamSupport;
 
 public class DataflowPath {
 
@@ -255,6 +257,10 @@ public class DataflowPath {
 
         for (Path validPath : validPaths) {
             acceptedCFGEnd.add(validPath.endNode());
+        }
+
+        if (acceptedCFGEnd.isEmpty()) {
+            return false;
         }
         candidatePath.updateCFG(acceptedCFGEnd);
 

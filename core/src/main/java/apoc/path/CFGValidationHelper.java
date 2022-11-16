@@ -6,10 +6,9 @@ import org.neo4j.graphdb.*;
 import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.procedure.Context;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class CFGValidationHelper {
 
@@ -29,6 +28,10 @@ public class CFGValidationHelper {
         varInfFunc, vifSource, vifDestination,
         varInfluence, viSource, viDestination,
         nextCFGBlock, pubVar, pubTarget;
+    }
+
+    public enum NodeLabel implements Label {
+        cVariable
     }
 
     public static enum DataflowType {
@@ -204,6 +207,25 @@ public class CFGValidationHelper {
         } else {
             return current.getRelationships(Direction.INCOMING, RelTypes.varWrite, RelTypes.parWrite, RelTypes.retWrite);
         }
+    }
+
+    public static boolean validatePath(Path cfgPath, Node middleNode) {
+
+        Node startNode = cfgPath.startNode();
+
+        for (Node cfgNode : cfgPath.nodes()) {
+            if (cfgNode.equals(startNode)) { continue; }
+            Iterable<Relationship> vwDstEdges = cfgNode.getRelationships(Direction.INCOMING,
+                    RelTypes.vwDestination);
+            for (Relationship vwDestEdge : vwDstEdges) {
+                if (vwDestEdge.getStartNode().equals(middleNode)) {
+                    return false;
+                }
+            }
+
+        }
+
+        return true;
     }
 
 }

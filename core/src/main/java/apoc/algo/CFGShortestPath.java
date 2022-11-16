@@ -1,6 +1,8 @@
 package apoc.algo;
 
+import apoc.path.CFGValidationHelper;
 import apoc.path.RelationshipTypeAndDirections;
+import org.apache.commons.math3.geometry.spherical.twod.Edge;
 import org.neo4j.graphdb.*;
 
 import static org.neo4j.graphdb.traversal.Uniqueness.RELATIONSHIP_GLOBAL;
@@ -15,6 +17,7 @@ import org.neo4j.procedure.Context;
 
 import apoc.path.CandidatePath;
 
+import javax.management.relation.Relation;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -100,6 +103,9 @@ public class CFGShortestPath {
         public ArrayList<Stack<Relationship>> curCallStacks;
         public HashSet<Node> filterOut;
         public HashSet<Relationship> cfgInvRets;
+        public boolean isVW;
+        public Node lastEdgeStart;
+        public Relationship lastSecondEdge;
 
         public CFGEvaluator(CandidatePath candidatePath, HashSet<Node> endNodes,
                            HashSet<Relationship> cfgInvRets) {
@@ -108,32 +114,39 @@ public class CFGShortestPath {
             this.curCallStacks = candidatePath.callStacks;
             this.filterOut = new HashSet<>();
             this.cfgInvRets = cfgInvRets;
+            this.isVW = candidatePath.getLastRel().isType(CFGValidationHelper.RelTypes.varWrite);
+            this.lastEdgeStart = candidatePath.getStartNode();
+            this.lastSecondEdge = candidatePath.getSecondLastRel();
 
-            for (Relationship cfgInvRet : cfgInvRets) {
+            /**for (Relationship cfgInvRet : cfgInvRets) {
                 if (updateCallStack(cfgInvRet)) {
                     this.filterOut.add(cfgInvRet.getEndNode());
                 }
-            }
+            }**/
         }
 
         @Override
         public Evaluation evaluate(Path path) {
 
-            if (path.length() == 0) {
-                // if path starts with filter node, then omit completely
-                if (this.filterOut.contains(path.endNode())) {
-                    return Evaluation.of(false, false);
-                }
+            if (path.length() > 0) {
+                boolean r = validateCFG(path.endNode());
 
-                // otherwise just check for endNodes
-                if (endNodes.contains(path.endNode())) {
-                    return Evaluation.of(true, false);
-                } else {
-                    return Evaluation.of(false, true);
+                if (!r) {
+                    return Evaluation.of(false, false);
                 }
             }
 
-            Relationship lastEdge = path.lastRelationship();
+            // otherwise just check for endNodes
+            if (endNodes.contains(path.endNode())) {
+                return Evaluation.of(true, false);
+            } else {
+                return Evaluation.of(false, true);
+            }
+            //}
+
+
+
+            /**Relationship lastEdge = path.lastRelationship();
             if (this.cfgInvRets.contains(lastEdge)) {
                 return Evaluation.of(false, false);
             }
@@ -146,7 +159,29 @@ public class CFGShortestPath {
                 }
             } else {
                 return Evaluation.of(false, false);
+            }**/
+
+        }
+
+        private boolean validateCFG(Node cfgNode) {
+
+            if (!this.lastEdgeStart.hasLabel(CFGValidationHelper.NodeLabel.cVariable)) {
+                return true;
+            } else if (this.lastSecondEdge.isType(CFGValidationHelper.RelTypes.parWrite)) {
+                return true;
             }
+
+            // check for both function overwriting and variable overwriting variables
+            Iterable<Relationship> connectionEdges = cfgNode.getRelationships(Direction.INCOMING,
+                    CFGValidationHelper.RelTypes.vwDestination,
+                    CFGValidationHelper.RelTypes.rwDestination);
+            for (Relationship connectionEdge : connectionEdges) {
+                if (connectionEdge.getStartNode().equals(this.lastEdgeStart)) {
+                    return false;
+                }
+            }
+
+            return true;
 
         }
 
