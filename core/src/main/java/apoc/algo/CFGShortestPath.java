@@ -106,6 +106,7 @@ public class CFGShortestPath {
         public boolean isVW;
         public Node lastEdgeStart;
         public Relationship lastSecondEdge;
+        public boolean found;
 
         public CFGEvaluator(CandidatePath candidatePath, HashSet<Node> endNodes,
                            HashSet<Relationship> cfgInvRets) {
@@ -117,6 +118,7 @@ public class CFGShortestPath {
             this.isVW = candidatePath.getLastRel().isType(CFGValidationHelper.RelTypes.varWrite);
             this.lastEdgeStart = candidatePath.getStartNode();
             this.lastSecondEdge = candidatePath.getSecondLastRel();
+            this.found = false;
 
             /**for (Relationship cfgInvRet : cfgInvRets) {
                 if (updateCallStack(cfgInvRet)) {
@@ -128,6 +130,10 @@ public class CFGShortestPath {
         @Override
         public Evaluation evaluate(Path path) {
 
+            if (found) {
+                return Evaluation.of(false, false);
+            }
+
             if (path.length() > 0) {
                 boolean r = validateCFG(path.endNode());
 
@@ -138,6 +144,7 @@ public class CFGShortestPath {
 
             // otherwise just check for endNodes
             if (endNodes.contains(path.endNode())) {
+                found = true;
                 return Evaluation.of(true, false);
             } else {
                 return Evaluation.of(false, true);
