@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class CFGBackwardShortestPath {
+public class CFGTraversalBackwardShortestPath {
 
     private final PathExpander expander;
 
@@ -29,7 +29,7 @@ public class CFGBackwardShortestPath {
     @Context
     public Transaction tx;
 
-    public CFGBackwardShortestPath(Transaction tx) {
+    public CFGTraversalBackwardShortestPath(Transaction tx) {
         this.tx = tx;
         expander = buildPathExpander("<nextCFGBlock");
     }

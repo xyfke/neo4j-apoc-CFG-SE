@@ -1,10 +1,6 @@
 package apoc.path;
 
-import apoc.algo.CFGBackwardShortestPath;
-import apoc.algo.CFGShortestPath;
-import org.neo4j.graphalgo.BasicEvaluationContext;
-import org.neo4j.graphalgo.GraphAlgoFactory;
-import org.neo4j.graphalgo.PathFinder;
+import apoc.algo.CFGTraversalBackwardShortestPath;
 import org.neo4j.graphdb.*;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -248,7 +244,7 @@ public class BackwardDataflowPath {
         HashMap<List<Node>, Relationship> endCFGs = CFGValidationHelper.getConnectionNodes(nextRel,
                 candidatePath, false, true);
 
-        CFGBackwardShortestPath cfgBackwardShortestPath = new CFGBackwardShortestPath(tx);
+        CFGTraversalBackwardShortestPath cfgBackwardShortestPath = new CFGTraversalBackwardShortestPath(tx);
         List<Path> validPaths = cfgBackwardShortestPath.findPath(startCFGs, endCFGs, candidatePath);
         HashSet<Node> acceptedCFGStart = new HashSet<>();
 

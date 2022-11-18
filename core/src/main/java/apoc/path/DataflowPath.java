@@ -1,16 +1,13 @@
 package apoc.path;
 
-import com.google.common.collect.Iterables;
 import org.neo4j.graphalgo.BasicEvaluationContext;
-import org.neo4j.graphalgo.GraphAlgoFactory;
-import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphdb.*;
 import org.neo4j.procedure.*;
 import apoc.path.CFGValidationHelper.DataflowType;
+import apoc.algo.CFGTraversalShortestPath;
 import apoc.algo.CFGShortestPath;
 
 import java.util.*;
-import java.util.stream.StreamSupport;
 
 public class DataflowPath {
 
@@ -247,16 +244,22 @@ public class DataflowPath {
         HashMap<List<Node>, Relationship> endCFGs = CFGValidationHelper.getConnectionNodes(nextRel,
                 candidatePath, false, false);
 
-        CFGShortestPath cfgShortestPath = new CFGShortestPath(tx);
-        List<Path> validPaths = cfgShortestPath.findPath(startCFGs, endCFGs, candidatePath);
         HashSet<Node> acceptedCFGEnd = new HashSet<>();
 
-        if (validPaths.isEmpty()) {
-            return false;
-        }
+        CFGShortestPath shortestPath = new CFGShortestPath(
+                new BasicEvaluationContext(tx, db),
+                (int) Integer.MAX_VALUE,
+                CFGValidationHelper.buildPathExpander("nextCFGBlock>"));
 
-        for (Path validPath : validPaths) {
-            acceptedCFGEnd.add(validPath.endNode());
+        for (List<Node> startCFG : startCFGs.keySet()) {
+            Node srcNode = startCFG.get(1);
+            for (List<Node> endCFG : endCFGs.keySet()) {
+                Node dstNode = endCFG.get(0);
+                Path cfgPath = shortestPath.findSinglePath(srcNode, dstNode, curRel);
+                if (cfgPath != null) {
+                    acceptedCFGEnd.add(dstNode);
+                }
+            }
         }
 
         if (acceptedCFGEnd.isEmpty()) {
