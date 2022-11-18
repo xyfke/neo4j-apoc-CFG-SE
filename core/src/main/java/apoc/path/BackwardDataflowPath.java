@@ -1,6 +1,8 @@
 package apoc.path;
 
+import apoc.algo.CFGShortestPath;
 import apoc.algo.CFGTraversalBackwardShortestPath;
+import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphdb.*;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -135,7 +137,7 @@ public class BackwardDataflowPath {
             curPath = new CandidatePath(endEdge);
             queuePath.add(curPath);
         } else if ((startEdge != null) && (endNode != null)) {  // prefix
-            start = endNode;
+            start = startEdge.getEndNode();
             category = DataflowType.PREFIX;
         } else {                                                // not valid
             return null;
@@ -190,11 +192,11 @@ public class BackwardDataflowPath {
                 if (curPath.getStartNode().equals(start)) {
 
                     if (category == DataflowType.PREFIX) {
-                        CandidatePath vifPath = new CandidatePath(curPath, endEdge);
-                        if ((!cfgCheck) || (backwardGetCFGPath(vifPath))) {
+                        CandidatePath varPath = new CandidatePath(curPath, startEdge);
+                        if ((!cfgCheck) || (backwardGetCFGPath(varPath))) {
                             // build path, and return (exit)
                             foundPath = true;
-                            returnCandidates.add(vifPath);
+                            returnCandidates.add(varPath);
                         }
                     } else {
                         // build path, and return (exit)
@@ -244,17 +246,26 @@ public class BackwardDataflowPath {
         HashMap<List<Node>, Relationship> endCFGs = CFGValidationHelper.getConnectionNodes(nextRel,
                 candidatePath, false, true);
 
-        CFGTraversalBackwardShortestPath cfgBackwardShortestPath = new CFGTraversalBackwardShortestPath(tx);
-        List<Path> validPaths = cfgBackwardShortestPath.findPath(startCFGs, endCFGs, candidatePath);
+        //CFGTraversalBackwardShortestPath cfgBackwardShortestPath = new CFGTraversalBackwardShortestPath(tx);
+        //List<Path> validPaths = cfgBackwardShortestPath.findPath(startCFGs, endCFGs, candidatePath);
         HashSet<Node> acceptedCFGStart = new HashSet<>();
 
-        if (validPaths.isEmpty()) {
-            return false;
+        CFGShortestPath shortestPath = new CFGShortestPath(
+                new BasicEvaluationContext(tx, db),
+                (int) Integer.MAX_VALUE,
+                CFGValidationHelper.buildPathExpander("nextCFGBlock>"));
+
+        for (List<Node> startCFG : startCFGs.keySet()) {
+            Node srcNode = startCFG.get(1);
+            for (List<Node> endCFG : endCFGs.keySet()) {
+                Node dstNode = endCFG.get(0);
+                Path cfgPath = shortestPath.findSinglePath(srcNode, dstNode, curRel);
+                if (cfgPath != null) {
+                    acceptedCFGStart.add(srcNode);
+                }
+            }
         }
 
-        for (Path validPath : validPaths) {
-            acceptedCFGStart.add(validPath.endNode());
-        }
         candidatePath.updateCFG(acceptedCFGStart);
 
         return !acceptedCFGStart.isEmpty();

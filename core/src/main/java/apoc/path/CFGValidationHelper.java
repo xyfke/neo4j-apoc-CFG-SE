@@ -209,23 +209,5 @@ public class CFGValidationHelper {
         }
     }
 
-    public static boolean validatePath(Path cfgPath, Node middleNode) {
-
-        Node startNode = cfgPath.startNode();
-
-        for (Node cfgNode : cfgPath.nodes()) {
-            if (cfgNode.equals(startNode)) { continue; }
-            Iterable<Relationship> vwDstEdges = cfgNode.getRelationships(Direction.INCOMING,
-                    RelTypes.vwDestination);
-            for (Relationship vwDestEdge : vwDstEdges) {
-                if (vwDestEdge.getStartNode().equals(middleNode)) {
-                    return false;
-                }
-            }
-
-        }
-
-        return true;
-    }
 
 }

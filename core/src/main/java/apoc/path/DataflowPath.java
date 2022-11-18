@@ -262,12 +262,9 @@ public class DataflowPath {
             }
         }
 
-        if (acceptedCFGEnd.isEmpty()) {
-            return false;
-        }
         candidatePath.updateCFG(acceptedCFGEnd);
 
-        return true;
+        return !acceptedCFGEnd.isEmpty();
 
     }
 
