@@ -3,6 +3,7 @@ package apoc.path;
 import apoc.algo.CFGShortestPath;
 import apoc.algo.CFGTraversalBackwardShortestPath;
 import org.neo4j.graphalgo.BasicEvaluationContext;
+import org.neo4j.graphalgo.impl.util.PathImpl;
 import org.neo4j.graphdb.*;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -27,7 +28,7 @@ public class BackwardDataflowPath {
                              @Name("cfgCheck") boolean cfgCheck) {
 
         Node start;
-        //Node end;
+        Node end;
         DataflowType category;  // indicating what type of dataflow path we are working with
 
         // define needed variables
@@ -38,13 +39,16 @@ public class BackwardDataflowPath {
 
         if ((startNode != null) && (endNode != null)) {         // dataflow in middle components
             start = startNode;
+            end = endNode;
             category = DataflowType.INTRA;
         } else if ((startNode != null) && (endEdge != null)) {  // suffix
             start = startNode;
+            end = endEdge.getStartNode();
             category = DataflowType.SUFFIX;
             curPath = new CandidatePath(endEdge);
             queuePath.add(curPath);
         } else if ((startEdge != null) && (endNode != null)) {  // prefix
+            end = endNode;
             start = startEdge.getEndNode();
             category = DataflowType.PREFIX;
         } else {                                                // not valid
@@ -52,6 +56,16 @@ public class BackwardDataflowPath {
         }
 
         Iterable<Relationship> dataflowRels;
+
+        // check if we reach end node
+        if (end.equals(start)) {
+            PathImpl.Builder builder = (startNode != null) ? new PathImpl.Builder(startNode):
+                    new PathImpl.Builder(startEdge.getStartNode());
+            builder = (startEdge != null) ? builder.push(startEdge) : builder;
+            builder = (endEdge != null) ? builder.push(endEdge) : builder;
+            return builder.build();
+        }
+
 
         // if it is not prefix, because we already have a starting edge for prefix, no need to look for the first
         if (category != DataflowType.SUFFIX) {
@@ -118,7 +132,7 @@ public class BackwardDataflowPath {
                                      @Name("cfgCheck") boolean cfgCheck) {
 
         Node start;
-        //Node end;
+        Node end;
         DataflowType category;  // indicating what type of dataflow path we are working with
 
         // define needed variables
@@ -130,20 +144,32 @@ public class BackwardDataflowPath {
 
         if ((startNode != null) && (endNode != null)) {         // dataflow in middle components
             start = startNode;
+            end = endNode;
             category = DataflowType.INTRA;
         } else if ((startNode != null) && (endEdge != null)) {  // suffix
-            start = startEdge.getEndNode();
+            start = startNode;
+            end = endEdge.getStartNode();
             category = DataflowType.SUFFIX;
             curPath = new CandidatePath(endEdge);
             queuePath.add(curPath);
         } else if ((startEdge != null) && (endNode != null)) {  // prefix
             start = startEdge.getEndNode();
+            end = endNode;
             category = DataflowType.PREFIX;
         } else {                                                // not valid
             return null;
         }
 
         Iterable<Relationship> dataflowRels;
+
+        // check if we reach end node
+        if (end.equals(start)) {
+            PathImpl.Builder builder = (startNode != null) ? new PathImpl.Builder(startNode):
+                    new PathImpl.Builder(startEdge.getStartNode());
+            builder = (startEdge != null) ? builder.push(startEdge) : builder;
+            builder = (endEdge != null) ? builder.push(endEdge) : builder;
+            return List.of(builder.build());
+        }
 
         // if it is not prefix, because we already have a starting edge for prefix, no need to look for the first
         if (category != DataflowType.SUFFIX) {

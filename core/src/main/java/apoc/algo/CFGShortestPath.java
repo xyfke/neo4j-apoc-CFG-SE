@@ -133,7 +133,7 @@ public class CFGShortestPath {
      * @return
      */
     public ClosingIterator<Path> findAllPathsAutoCloseableIterator( Node start, Node end,
-                                                                    Relationship dataflowRel )
+                                                                    Relationship dataflowRel)
     {
         return new ClosingIterator()
         {
@@ -401,7 +401,7 @@ public class CFGShortestPath {
         private boolean haveFoundSomething;
         private boolean stop;
         private final PathExpander expander;
-        private final Relationship lastSecondRel;
+        private final Relationship dataflowRel;
         private final boolean checkNode;
         private final Node targetCompNode;
         private final Node actualStart;
@@ -412,7 +412,7 @@ public class CFGShortestPath {
                        MutableInt sharedCurrentDepth,
                        PathExpander expander,
                        MemoryTracker memoryTracker,
-                       Relationship lastSecondRel,
+                       Relationship dataflowRel,
                        Node actualStart)
         {
             this.startNode = startNode;
@@ -436,11 +436,11 @@ public class CFGShortestPath {
             }
 
 
-            this.lastSecondRel = lastSecondRel;
-            this.targetCompNode = lastSecondRel.getEndNode();
+            this.dataflowRel = dataflowRel;
+            this.targetCompNode = dataflowRel.getEndNode();
             this.checkNode = ((targetCompNode.hasLabel(NodeLabel.cVariable)) &&
-                    (this.lastSecondRel.isType(RelTypes.varWrite) ||
-                            this.lastSecondRel.isType(RelTypes.retWrite)));
+                    (this.dataflowRel.isType(RelTypes.varWrite) ||
+                            this.dataflowRel.isType(RelTypes.retWrite)));
             this.actualStart = startNode;
 
         }

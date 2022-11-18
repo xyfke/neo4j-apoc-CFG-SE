@@ -1,6 +1,7 @@
 package apoc.path;
 
 import org.neo4j.graphalgo.BasicEvaluationContext;
+import org.neo4j.graphalgo.impl.util.PathImpl;
 import org.neo4j.graphdb.*;
 import org.neo4j.procedure.*;
 import apoc.path.CFGValidationHelper.DataflowType;
@@ -23,7 +24,7 @@ public class DataflowPath {
                            @Name("startEdge") Relationship startEdge, @Name("endEdge") Relationship endEdge,
                            @Name("cfgCheck") boolean cfgCheck) {
 
-        //Node start;
+        Node start;
         Node end;
         DataflowType category;  // indicating what type of dataflow path we are working with
 
@@ -34,12 +35,15 @@ public class DataflowPath {
 
 
         if ((startNode != null) && (endNode != null)) {         // dataflow in middle components
+            start = startNode;
             end = endNode;
             category = DataflowType.INTRA;
         } else if ((startNode != null) && (endEdge != null)) {  // suffix
+            start = startNode;
             end = endEdge.getStartNode();
             category = DataflowType.SUFFIX;
         } else if ((startEdge != null) && (endNode != null)) {  // prefix
+            start = startEdge.getEndNode();
             end = endNode;
             category = DataflowType.PREFIX;
             curPath = new CandidatePath(startEdge);
@@ -48,7 +52,16 @@ public class DataflowPath {
             return null;
         }
 
+
         Iterable<Relationship> dataflowRels;
+
+        if (start.equals(end)) {
+            PathImpl.Builder builder = (startNode != null) ? new PathImpl.Builder(startNode):
+                    new PathImpl.Builder(startEdge.getStartNode());
+            builder = (startEdge != null) ? builder.push(startEdge) : builder;
+            builder = (endEdge != null) ? builder.push(endEdge) : builder;
+            return builder.build();
+        }
 
         // if it is not prefix, because we already have a starting edge for prefix, no need to look for the first
         if (category != DataflowType.PREFIX) {
@@ -114,7 +127,7 @@ public class DataflowPath {
                                  @Name("startEdge") Relationship startEdge, @Name("endEdge") Relationship endEdge,
                                  @Name("cfgCheck") boolean cfgCheck) {
 
-        //Node start;
+        Node start;
         Node end;
         DataflowType category;  // indicating what type of dataflow path we are working with
 
@@ -126,12 +139,15 @@ public class DataflowPath {
         List<CandidatePath> returnCandidates = new ArrayList<CandidatePath>();
 
         if ((startNode != null) && (endNode != null)) {         // dataflow in middle components
+            start = startNode;
             end = endNode;
             category = DataflowType.INTRA;
         } else if ((startNode != null) && (endEdge != null)) {  // suffix
+            start = startNode;
             end = endEdge.getStartNode();
             category = DataflowType.SUFFIX;
         } else if ((startEdge != null) && (endNode != null)) {  // prefix
+            start = startEdge.getEndNode();
             end = endNode;
             category = DataflowType.PREFIX;
             curPath = new CandidatePath(startEdge);
@@ -141,6 +157,14 @@ public class DataflowPath {
         }
 
         Iterable<Relationship> dataflowRels;
+
+        if (start.equals(end)) {
+            PathImpl.Builder builder = (startNode != null) ? new PathImpl.Builder(startNode):
+                    new PathImpl.Builder(startEdge.getStartNode());
+            builder = (startEdge != null) ? builder.push(startEdge) : builder;
+            builder = (endEdge != null) ? builder.push(endEdge) : builder;
+            return List.of(builder.build());
+        }
 
         // if it is not prefix, because we already have a starting edge for prefix, no need to look for the first
         if (category != DataflowType.PREFIX) {

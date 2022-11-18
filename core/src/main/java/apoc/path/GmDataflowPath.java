@@ -1,5 +1,6 @@
 package apoc.path;
 
+import apoc.algo.CFGShortestPath;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
@@ -226,24 +227,19 @@ public class GmDataflowPath {
                 CFGValidationHelper.getParWriteConnectionNodes(nextRel, candidatePath, false) :
                 CFGValidationHelper.getConnectionNodes(nextRel, candidatePath, false, false);
 
-        Path cfgPath = null;
-        Node n1 = null;
-        Node n2 = null;
-
-        if ((startCFGs.isEmpty()) || (endCFGs.isEmpty())) {
-            return false;
-        }
-
+        CFGShortestPath shortestPath = new CFGShortestPath(
+                new BasicEvaluationContext(tx, db),
+                (int) Integer.MAX_VALUE,
+                CFGValidationHelper.buildPathExpander("nextCFGBlock>"));
         HashSet<Node> acceptedCFGEnd = new HashSet<>();
 
-        // if we can find a path from the cfg node associated with r1 to the cfg node associated
-        // with r2, then there exists a cfg path
-        for (List<Node> listStartCFG : startCFGs.keySet()) {
-            Node startCFGNode = listStartCFG.get(0);
-            for (List<Node> listEndCFG : endCFGs.keySet()) {
-                cfgPath = algo.findSinglePath(startCFGNode, listEndCFG.get(0));
+        for (List<Node> startCFG : startCFGs.keySet()) {
+            Node srcNode = startCFG.get(1);
+            for (List<Node> endCFG : endCFGs.keySet()) {
+                Node dstNode = endCFG.get(0);
+                Path cfgPath = shortestPath.findSinglePath(srcNode, dstNode, curRel);
                 if (cfgPath != null) {
-                    acceptedCFGEnd.add(listEndCFG.get(1));
+                    acceptedCFGEnd.add(dstNode);
                 }
             }
         }

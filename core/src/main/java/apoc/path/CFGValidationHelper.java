@@ -116,7 +116,7 @@ public class CFGValidationHelper {
 
                 if (addNode) {
                     if (isReverse) {
-                        if ((!isFirst) || (candidatePath.hasCFG(dstCFG.getEndNode()))) {
+                        if ((isFirst) || (candidatePath.hasCFG(dstCFG.getEndNode()))) {
                             cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), nextCFGBlockEdge);
                         }
                     } else {
