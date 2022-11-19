@@ -68,10 +68,32 @@ The parameters are:
 * `endEdge`: the last dataflow related edge of the dataflow query (typically a parWrite or varInfFunc)
 * `cfgCheck`: boolean flag for whether or not to perform CFG validation
 
-### APOC Function
+### Forward Propagation
 
-Only forward single path propagation is implemented so far.
+
+#### Single Path
 
 ```
 apoc.path.gmDataflowPath(startEdge, endEdge, cfgCheck)
+```
+
+#### All Paths
+
+```
+apoc.path.allGmDataflowPaths(startEdge, endEdge, cfgCheck)
+```
+
+### Backward Propagation
+
+#### Single Path
+
+```
+apoc.path.backwardGmDataflowPath(startEdge, endEdge, cfgCheck)
+```
+
+
+#### All Paths
+
+```
+apoc.path.allBackwardGmDataflowPaths(startEdge, endEdge, cfgCheck)
 ```
