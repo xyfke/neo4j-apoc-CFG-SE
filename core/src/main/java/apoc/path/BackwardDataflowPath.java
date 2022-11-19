@@ -56,6 +56,7 @@ public class BackwardDataflowPath {
         }
 
         Iterable<Relationship> dataflowRels;
+        HashMap<List<Node>, Relationship> endCFGs;
 
         // check if we reach end node
         if (end.equals(start)) {
@@ -75,8 +76,19 @@ public class BackwardDataflowPath {
             for (Relationship dataflowRel : dataflowRels) {
                 if (!visitedEdge.contains(dataflowRel)) {
                     CandidatePath candidatePath = new CandidatePath(dataflowRel);
+                    if (cfgCheck) {
+                        endCFGs = CFGValidationHelper.getConnectionNodes(dataflowRel, candidatePath,
+                                false, true);
+                        CFGValidationHelper.addCFGToCandidatePath(candidatePath, endCFGs, true);
+                    }
                     queuePath.add(candidatePath);
                 }
+            }
+        } else {
+            if (cfgCheck) {
+                endCFGs = CFGValidationHelper.getConnectionNodes(endEdge, curPath,
+                        false, true);
+                CFGValidationHelper.addCFGToCandidatePath(curPath, endCFGs, true);
             }
         }
 
@@ -161,6 +173,7 @@ public class BackwardDataflowPath {
         }
 
         Iterable<Relationship> dataflowRels;
+        HashMap<List<Node>, Relationship> endCFGs;
 
         // check if we reach end node
         if (end.equals(start)) {
@@ -179,8 +192,19 @@ public class BackwardDataflowPath {
             for (Relationship dataflowRel : dataflowRels) {
                 if (!visitedEdges.contains(dataflowRel)) {
                     CandidatePath candidatePath = new CandidatePath(dataflowRel);
+                    if (cfgCheck) {
+                        endCFGs = CFGValidationHelper.getConnectionNodes(dataflowRel, candidatePath,
+                                false, true);
+                        CFGValidationHelper.addCFGToCandidatePath(candidatePath, endCFGs, true);
+                    }
                     queuePath.add(candidatePath);
                 }
+            }
+        } else {
+            if (cfgCheck) {
+                endCFGs = CFGValidationHelper.getConnectionNodes(endEdge, curPath,
+                        false, true);
+                CFGValidationHelper.addCFGToCandidatePath(curPath, endCFGs, true);
             }
         }
 
@@ -269,8 +293,7 @@ public class BackwardDataflowPath {
         // obtain cfg nodes and relationships associated with r1 and r2
         HashMap<List<Node>, Relationship> startCFGs = CFGValidationHelper.getConnectionNodes(curRel,
                 candidatePath, true, true);
-        HashMap<List<Node>, Relationship> endCFGs = CFGValidationHelper.getConnectionNodes(nextRel,
-                candidatePath, false, true);
+        HashSet<Node> endCFGs = candidatePath.validCFGs;
 
         //CFGTraversalBackwardShortestPath cfgBackwardShortestPath = new CFGTraversalBackwardShortestPath(tx);
         //List<Path> validPaths = cfgBackwardShortestPath.findPath(startCFGs, endCFGs, candidatePath);
@@ -283,11 +306,10 @@ public class BackwardDataflowPath {
 
         for (List<Node> startCFG : startCFGs.keySet()) {
             Node srcNode = startCFG.get(1);
-            for (List<Node> endCFG : endCFGs.keySet()) {
-                Node dstNode = endCFG.get(0);
+            for (Node dstNode : endCFGs) {
                 Path cfgPath = shortestPath.findSinglePath(srcNode, dstNode, curRel);
                 if (cfgPath != null) {
-                    acceptedCFGStart.add(srcNode);
+                    acceptedCFGStart.add(startCFG.get(0));
                 }
             }
         }

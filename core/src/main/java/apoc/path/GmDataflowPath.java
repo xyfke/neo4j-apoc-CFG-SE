@@ -65,16 +65,13 @@ public class GmDataflowPath {
         // INTRA - (startNode pwDestination) to (endNode - pwSource)
         // SUFFIX - (startNode pwDestination) to endEdge
         // Adding first CFGs to Candidate path
-        HashMap<List<Node>, Relationship> firstCFGs = (category != DataflowType.PREFIX) ?
-                CFGValidationHelper.getParWriteConnectionNodes(start, curPath, true) :
-                CFGValidationHelper.getConnectionNodes(startEdge, curPath,
-                        true, false);
-        HashSet<Node> acceptedCFGs = new HashSet<>();
-        for (List<Node> firstCFG : firstCFGs.keySet()) {
-            acceptedCFGs.add(firstCFG.get(0));
+        if (cfgCheck) {
+            HashMap<List<Node>, Relationship> firstCFGs = (category != DataflowType.PREFIX) ?
+                    CFGValidationHelper.getParWriteConnectionNodes(start, curPath, true) :
+                    CFGValidationHelper.getConnectionNodes(startEdge, curPath,
+                            true, false);
+            CFGValidationHelper.addCFGToCandidatePath(curPath, firstCFGs, false);
         }
-        curPath.updateCFG(acceptedCFGs);
-
 
         // check for already found values
         if (start.equals(end)) {
@@ -153,43 +150,86 @@ public class GmDataflowPath {
 
     @UserFunction
     @Description("apoc.path.allGmDataflowPaths(startNode, endNode, startEdge, endEdge, cfgCheck) - finds all shortest path dataflow path using forward propagation")
-    public List<Path> allGmDataflowPaths(@Name("startEdge") Relationship startEdge,
+    public List<Path> allGmDataflowPaths(@Name("startNode") Node startNode,
+                                @Name("endNode") Node endNode,
+                                @Name("startEdge") Relationship startEdge,
                                @Name("endEdge") Relationship endEdge,
                                @Name("cfgCheck") boolean cfgCheck) {
 
-        //Node start = startEdge.getEndNode();
-        Node end = endEdge.getStartNode();
+        Node start;
+        Node end;
         DataflowType category;
         Iterable<Relationship> dataflowRels;
 
         // define needed variables
+        List<CandidatePath> returnCandidates = new ArrayList<CandidatePath>();
         HashSet<Relationship> visitedEdges = new HashSet<Relationship>();
         Queue<CandidatePath> queuePath = new LinkedList<>();
 
         // add first edge to path
-        CandidatePath curPath = new CandidatePath(startEdge);
-        queuePath.add(curPath);
+        CandidatePath curPath = new CandidatePath();
 
-        List<CandidatePath> returnCandidates = new ArrayList<CandidatePath>();
-
-
-        if ((startEdge.isType(RelTypes.varWrite)) && (endEdge.isType(RelTypes.parWrite))) {
+        if ((startEdge != null) && (endNode != null)) {         // prefix
             category = DataflowType.PREFIX;
-        } else if ((startEdge.isType(RelTypes.parWrite)) && (endEdge.isType(RelTypes.parWrite))) {
+            start = startEdge.getEndNode();
+            end = endNode;
+            curPath = new CandidatePath(startEdge);
+        } else if ((startNode != null) && (endNode != null)) {      // intra
             category = DataflowType.INTRA;
-        } else if ((startEdge.isType(RelTypes.parWrite)) && (endEdge.isType(RelTypes.varInfFunc))) {
+            start = startNode;
+            end = endNode;
+            curPath = new CandidatePath(endNode);
+        } else if ((startNode != null) && (endEdge != null)) {      // suffix
             category = DataflowType.SUFFIX;
+            start = startNode;
+            end = endEdge.getStartNode();
         } else {
             return null;
         }
 
-        // cfgPath variable
-        List<Relationship> cfgPath = null;
+        // PREFIX - startEdge to (endNode -pwSource)
+        // INTRA - (startNode pwDestination) to (endNode - pwSource)
+        // SUFFIX - (startNode pwDestination) to endEdge
+        // Adding first CFGs to Candidate path
+        if (cfgCheck) {
+            HashMap<List<Node>, Relationship> firstCFGs = (category != DataflowType.PREFIX) ?
+                    CFGValidationHelper.getParWriteConnectionNodes(start, curPath, true) :
+                    CFGValidationHelper.getConnectionNodes(startEdge, curPath,
+                            true, false);
+            CFGValidationHelper.addCFGToCandidatePath(curPath, firstCFGs, false);
+        }
+
+        // check for already found values
+        if (start.equals(end)) {
+            curPath = (category == DataflowType.SUFFIX) ? new CandidatePath(curPath, endEdge) :
+                    curPath;
+            if ((!cfgCheck) || (gmGetCFGPath(curPath,
+                    (category != DataflowType.PREFIX),
+                    (category != DataflowType.SUFFIX)))) {
+                PathImpl.Builder builder = (startEdge != null) ?
+                        new PathImpl.Builder(startEdge.getStartNode()) :
+                        new PathImpl.Builder(start);
+                builder = (startEdge != null) ? builder.push(startEdge) : builder;
+                builder = (endEdge != null) ? builder.push(endEdge) : builder;
+                return List.of(builder.build());
+            }
+        }
+
+
+        if (category != DataflowType.PREFIX) {
+            dataflowRels = CFGValidationHelper.getNextRels(start, false);
+            for (Relationship dataflowRel : dataflowRels) {
+                if (!visitedEdges.contains(dataflowRel)) {
+                    curPath = new CandidatePath(curPath, dataflowRel);
+                    queuePath.add(curPath);
+                }
+            }
+        }
+
+        HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
         int pathLen = -1;
         boolean foundPath = false;
 
-        // keep track of visited relationships at current length
-        HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
 
         while (!queuePath.isEmpty()) {
 
@@ -211,7 +251,7 @@ public class GmDataflowPath {
             pathLen = curLen;
 
             // boolean variables indicating whether we are doing a start or end check
-            boolean isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 2));
+            boolean isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 1));
             boolean isEndPW = false;
 
             // continue searching only if does not require cfg check or cfg check passes
@@ -223,7 +263,7 @@ public class GmDataflowPath {
                 if (curPath.getEndNode().equals(end)) {
 
                     CandidatePath returnPath = new CandidatePath(curPath, endEdge);
-                    isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 2));
+                    isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 1));
                     isEndPW = (category != DataflowType.SUFFIX);
 
                     if ((!cfgCheck) || (gmGetCFGPath(returnPath, isStartPW, isEndPW))) {
@@ -267,8 +307,6 @@ public class GmDataflowPath {
         Node targetNode;
         boolean filterVar;
 
-        // category == PREFIX, length = 1, filterVar = true, get Second
-
         // category == INTRA
         if (candidatePath.getPathSize() == 0) {
             targetNode = candidatePath.endNode;
@@ -295,9 +333,6 @@ public class GmDataflowPath {
         // obtain cfg nodes and relationships associated with r1 and r2
         HashSet<Node> startNodes = candidatePath.validCFGs;
 
-        /**HashMap<List<Node>, Relationship> startCFGs = (isStartPW) ?
-                CFGValidationHelper.getParWriteConnectionNodes(curPwNode, candidatePath, true) :
-                CFGValidationHelper.getConnectionNodes(curRel, candidatePath, true, false);**/
         HashMap<List<Node>, Relationship> endCFGs = (isEndPW) ?
                 CFGValidationHelper.getParWriteConnectionNodes(targetNode, candidatePath, false) :
                 CFGValidationHelper.getConnectionNodes(nextRel, candidatePath, false, false);
