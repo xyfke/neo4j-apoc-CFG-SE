@@ -1,5 +1,6 @@
 package apoc.path;
 
+import org.checkerframework.checker.units.qual.C;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 
@@ -17,6 +18,23 @@ public class CandidatePath {
     public HashSet<Node> validCFGs;
     public int pathSize;
     public ArrayList<Stack<Relationship>> callStacks;
+    public Node startNode;
+    public Node endNode;
+
+    public CandidatePath() {
+        this.partialResult = new ArrayList();
+        this.validCFGs = new HashSet<Node>();
+        this.pathSize = 0;
+        this.callStacks = new ArrayList<>();
+    }
+
+    public CandidatePath(Node endNode) {
+        this.partialResult = new ArrayList();
+        this.validCFGs = new HashSet<Node>();
+        this.pathSize = 0;
+        this.callStacks = new ArrayList<>();
+        this.endNode = endNode;
+    }
 
     // constructor for a single edge
     public CandidatePath(Relationship startEdge) {

@@ -217,10 +217,10 @@ public class BackwardGmDataflowPath {
 
         // obtain cfg nodes and relationships associated with r1 and r2
         HashMap<List<Node>, Relationship> startCFGs = (isStartPW) ?
-                CFGValidationHelper.getParWriteConnectionNodes(curRel, candidatePath, true) :
+                CFGValidationHelper.getParWriteConnectionNodes(curRel.getStartNode(), candidatePath, true) :
                 CFGValidationHelper.getConnectionNodes(curRel, candidatePath, true, true);
         HashMap<List<Node>, Relationship> endCFGs = (isEndPW) ?
-                CFGValidationHelper.getParWriteConnectionNodes(nextRel, candidatePath, false) :
+                CFGValidationHelper.getParWriteConnectionNodes(nextRel.getEndNode(), candidatePath, false) :
                 CFGValidationHelper.getConnectionNodes(nextRel, candidatePath, false, true);
 
         Path cfgPath = null;

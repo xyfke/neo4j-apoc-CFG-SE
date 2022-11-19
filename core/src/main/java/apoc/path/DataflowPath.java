@@ -281,7 +281,7 @@ public class DataflowPath {
                 Node dstNode = endCFG.get(0);
                 Path cfgPath = shortestPath.findSinglePath(srcNode, dstNode, curRel);
                 if (cfgPath != null) {
-                    acceptedCFGEnd.add(dstNode);
+                    acceptedCFGEnd.add(endCFG.get(1));
                 }
             }
         }

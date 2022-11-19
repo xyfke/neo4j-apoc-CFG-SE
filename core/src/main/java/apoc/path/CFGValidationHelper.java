@@ -115,15 +115,7 @@ public class CFGValidationHelper {
                 }
 
                 if (addNode) {
-                    if (isReverse) {
-                        if ((isFirst) || (candidatePath.hasCFG(dstCFG.getEndNode()))) {
-                            cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), nextCFGBlockEdge);
-                        }
-                    } else {
-                        if ((!isFirst) || (candidatePath.hasCFG(srcCFG.getEndNode()))) {
-                            cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), nextCFGBlockEdge);
-                        }
-                    }
+                    cfgNodes.put(List.of(srcCFG.getEndNode(), dstCFG.getEndNode()), nextCFGBlockEdge);
                 }
             }
         }
@@ -135,33 +127,17 @@ public class CFGValidationHelper {
 
     // helper function: return start and end CFG nodes along with the connections for gm parWrite
     // return: a hashset of CFG nodes
-    public static HashMap<List<Node>, Relationship> getParWriteConnectionNodes(Relationship r,
+    public static HashMap<List<Node>, Relationship> getParWriteConnectionNodes(Node pwNode,
                                                                                CandidatePath candidatePath,
-                                                                                boolean first) {
+                                                                                boolean start) {
 
         HashMap<List<Node>, Relationship> cfgNodes = new HashMap<>();
+        Iterable<Relationship> targetCFGs = (start) ?
+                pwNode.getRelationships(Direction.OUTGOING, RelTypes.pwDestination) :
+                pwNode.getRelationships(Direction.OUTGOING, RelTypes.pwSource);
 
-        if (r.isType(RelTypes.parWrite)) {
-            Iterable<Relationship> targetCFGs;
-            if (first) {
-                targetCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                        RelTypes.pwDestination);
-            } else {
-                targetCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                        RelTypes.pwSource);
-            }
-
-            for (Relationship targetCFG : targetCFGs) {
-                if (first) {
-                    if (candidatePath.hasCFG(targetCFG.getEndNode())) {
-                        cfgNodes.put(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()), null);
-                    }
-                } else {
-                    cfgNodes.put(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()), null);
-                }
-
-            }
-
+        for (Relationship targetCFG : targetCFGs) {
+            cfgNodes.put(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()), null);
         }
 
         return cfgNodes;

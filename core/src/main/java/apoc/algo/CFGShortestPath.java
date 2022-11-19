@@ -117,11 +117,11 @@ public class CFGShortestPath {
     //@Override
     public Iterable<Path> findAllPaths( Node start, Node end, Relationship dataflowRel)
     {
-        /**Node targetNode = secondLastRel.getEndNode();
+        Node targetNode = dataflowRel.getEndNode();
         boolean filterVar = (targetNode.hasLabel(NodeLabel.cVariable) &&
-                (secondLastRel.isType(RelTypes.varWrite) ||
-                        secondLastRel.isType(RelTypes.parWrite)));**/
-        return internalPaths( start, end, false, dataflowRel);
+                (dataflowRel.isType(RelTypes.varWrite) ||
+                        dataflowRel.isType(RelTypes.parWrite)));
+        return internalPaths( start, end, false, targetNode, filterVar);
     }
 
     /**
@@ -137,11 +137,12 @@ public class CFGShortestPath {
     {
         return new ClosingIterator()
         {
-            /**Node targetNode = secondLastRel.getEndNode();
+            Node targetNode = dataflowRel.getEndNode();
             boolean filterVar = (targetNode.hasLabel(NodeLabel.cVariable) &&
-                    (secondLastRel.isType(RelTypes.varWrite) ||
-                            secondLastRel.isType(RelTypes.parWrite)));**/
-            Iterator<Path> inner = internalPaths( start, end, false, dataflowRel).iterator();
+                    (dataflowRel.isType(RelTypes.varWrite) ||
+                            dataflowRel.isType(RelTypes.parWrite)));
+            Iterator<Path> inner = internalPaths( start, end, false, targetNode,
+                    filterVar).iterator();
 
             @Override
             public void closeMore()
@@ -171,11 +172,20 @@ public class CFGShortestPath {
     //@Override
     public Path findSinglePath( Node start, Node end, Relationship dataflowRel)
     {
-        /**Node targetNode = secondLastRel.getEndNode();
+        Node targetNode = dataflowRel.getEndNode();
         boolean filterVar = (targetNode.hasLabel(NodeLabel.cVariable) &&
-                (secondLastRel.isType(RelTypes.varWrite) ||
-                        secondLastRel.isType(RelTypes.parWrite)));**/
-        Iterator<Path> paths = internalPaths( start, end, true, dataflowRel).iterator();
+                (dataflowRel.isType(RelTypes.varWrite) ||
+                        dataflowRel.isType(RelTypes.parWrite)));
+        Iterator<Path> paths = internalPaths( start, end, true, targetNode,
+                filterVar).iterator();
+        Path path = paths.hasNext() ? paths.next() : null;
+        memoryTracker.reset();
+        return path;
+    }
+
+    public Path findSinglePath(Node start, Node end, Node targetNode, boolean filterVar) {
+        Iterator<Path> paths = internalPaths( start, end, true, targetNode,
+                filterVar).iterator();
         Path path = paths.hasNext() ? paths.next() : null;
         memoryTracker.reset();
         return path;
@@ -192,7 +202,7 @@ public class CFGShortestPath {
     }
 
     private Iterable<Path> internalPaths( Node start, Node end, boolean stopAsap,
-                                          Relationship dataflowRel)
+                                          Node targetNode, boolean filterVar)
     {
         lastMetadata = new Metadata();
         if ( start.equals( end ) )
@@ -204,10 +214,10 @@ public class CFGShortestPath {
         MutableBoolean sharedStop = new MutableBoolean();
         MutableInt sharedCurrentDepth = new MutableInt( 0 );
         try ( DirectionData startData = new DirectionData( start, sharedFrozenDepth, sharedStop,
-                sharedCurrentDepth, expander, memoryTracker, dataflowRel, start);
+                sharedCurrentDepth, expander, memoryTracker, filterVar, targetNode, start);
               DirectionData endData = new DirectionData( end, sharedFrozenDepth,
                       sharedStop, sharedCurrentDepth, expander.reverse(), memoryTracker,
-                      dataflowRel, start) )
+                      filterVar, targetNode, start) )
         {
             while ( startData.hasNext() || endData.hasNext() )
             {
@@ -401,7 +411,6 @@ public class CFGShortestPath {
         private boolean haveFoundSomething;
         private boolean stop;
         private final PathExpander expander;
-        private final Relationship dataflowRel;
         private final boolean checkNode;
         private final Node targetCompNode;
         private final Node actualStart;
@@ -412,7 +421,8 @@ public class CFGShortestPath {
                        MutableInt sharedCurrentDepth,
                        PathExpander expander,
                        MemoryTracker memoryTracker,
-                       Relationship dataflowRel,
+                       boolean filterVar,
+                       Node targetNode,
                        Node actualStart)
         {
             this.startNode = startNode;
@@ -436,11 +446,8 @@ public class CFGShortestPath {
             }
 
 
-            this.dataflowRel = dataflowRel;
-            this.targetCompNode = dataflowRel.getEndNode();
-            this.checkNode = ((targetCompNode.hasLabel(NodeLabel.cVariable)) &&
-                    (this.dataflowRel.isType(RelTypes.varWrite) ||
-                            this.dataflowRel.isType(RelTypes.retWrite)));
+            this.targetCompNode = targetNode;
+            this.checkNode = filterVar;
             this.actualStart = startNode;
 
         }
