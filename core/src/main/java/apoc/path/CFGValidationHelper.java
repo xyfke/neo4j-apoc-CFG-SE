@@ -1,4 +1,5 @@
 package apoc.path;
+import org.checkerframework.checker.units.qual.N;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
@@ -183,6 +184,24 @@ public class CFGValidationHelper {
         } else {
             return current.getRelationships(Direction.INCOMING, RelTypes.varWrite, RelTypes.parWrite, RelTypes.retWrite);
         }
+    }
+
+    public static void addCFGToCandidatePath(CandidatePath candidatePath,
+                                             HashMap<List<Node>, Relationship> startCFGs,
+                                             boolean isReverse) {
+
+        HashSet<Node> acceptedCFGs = new HashSet<>();
+
+        for (List<Node> startCFG : startCFGs.keySet()) {
+            if (isReverse) {
+                acceptedCFGs.add(startCFG.get(1));
+            } else {
+                acceptedCFGs.add(startCFG.get(0));
+            }
+
+        }
+        candidatePath.updateCFG(acceptedCFGs);
+
     }
 
 

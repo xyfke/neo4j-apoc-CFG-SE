@@ -65,16 +65,17 @@ public class GmDataflowPath {
         // INTRA - (startNode pwDestination) to (endNode - pwSource)
         // SUFFIX - (startNode pwDestination) to endEdge
         // Adding first CFGs to Candidate path
-        HashMap<List<Node>, Relationship> firstCFGs = (category != DataflowType.PREFIX) ?
-                CFGValidationHelper.getParWriteConnectionNodes(start, curPath, true) :
-                CFGValidationHelper.getConnectionNodes(startEdge, curPath,
-                        true, false);
-        HashSet<Node> acceptedCFGs = new HashSet<>();
-        for (List<Node> firstCFG : firstCFGs.keySet()) {
-            acceptedCFGs.add(firstCFG.get(0));
+        if (cfgCheck) {
+            HashMap<List<Node>, Relationship> firstCFGs = (category != DataflowType.PREFIX) ?
+                    CFGValidationHelper.getParWriteConnectionNodes(start, curPath, true) :
+                    CFGValidationHelper.getConnectionNodes(startEdge, curPath,
+                            true, false);
+            HashSet<Node> acceptedCFGs = new HashSet<>();
+            for (List<Node> firstCFG : firstCFGs.keySet()) {
+                acceptedCFGs.add(firstCFG.get(0));
+            }
+            curPath.updateCFG(acceptedCFGs);
         }
-        curPath.updateCFG(acceptedCFGs);
-
 
         // check for already found values
         if (start.equals(end)) {
