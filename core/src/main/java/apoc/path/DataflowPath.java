@@ -330,7 +330,7 @@ public class DataflowPath {
                     if (cfgCheck) {
                         startCFGs = CFGValidationHelper.getConnectionNodes(dataflowRel, candidatePath,
                                 true, false);
-                        CFGValidationHelper.addCFGToCandidatePath(curPath, startCFGs, false);
+                        CFGValidationHelper.addCFGToCandidatePath(candidatePath, startCFGs, false);
                     }
                     queuePath.add(candidatePath);
                 }
@@ -362,7 +362,7 @@ public class DataflowPath {
                 break;
             }
 
-            if (foundPath && (foundCandidatePath != null) && (!foundCandidatePath.compareRetNodes(curPath))) {
+            if (foundPath && (!foundCandidatePath.compareRetNodes(curPath))) {
                 continue;
             }
 
