@@ -1,5 +1,6 @@
 package apoc.path;
 
+import org.apache.commons.math3.geometry.spherical.twod.Edge;
 import org.checkerframework.checker.units.qual.C;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
@@ -20,20 +21,23 @@ public class CandidatePath {
     public ArrayList<Stack<Relationship>> callStacks;
     public Node startNode;
     public Node endNode;
+    public ArrayList<Node> retNodes;
 
     public CandidatePath() {
         this.partialResult = new ArrayList();
         this.validCFGs = new HashSet<Node>();
         this.pathSize = 0;
-        this.callStacks = new ArrayList<>();
+        //this.callStacks = new ArrayList<>();
+        this.retNodes = new ArrayList<>();
     }
 
     public CandidatePath(Node endNode) {
         this.partialResult = new ArrayList();
         this.validCFGs = new HashSet<Node>();
         this.pathSize = 0;
-        this.callStacks = new ArrayList<>();
+        //this.callStacks = new ArrayList<>();
         this.endNode = endNode;
+        this.retNodes = new ArrayList<>();
     }
 
     // constructor for a single edge
@@ -41,7 +45,12 @@ public class CandidatePath {
         this.partialResult = new ArrayList(List.of(startEdge));
         this.validCFGs = new HashSet<Node>();
         this.pathSize = 1;
-        this.callStacks = new ArrayList<>();
+        //this.callStacks = new ArrayList<>();
+        this.retNodes = new ArrayList<>();
+
+        if (startEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
+            this.retNodes.add(startEdge.getStartNode());
+        }
     }
 
     // constructor to create new path from old path plus a single edge
@@ -52,12 +61,21 @@ public class CandidatePath {
         this.pathSize = oldPath.getPathSize() + 1;
 
         // get all previous callStacks
-        this.callStacks = new ArrayList<>();
+        /**this.callStacks = new ArrayList<>();
         for (Stack<Relationship> callStack : oldPath.callStacks) {
             Stack<Relationship> tempStack = new Stack<>();
             tempStack.addAll(callStack);
             this.callStacks.add(tempStack);
+        }**/
+
+        this.retNodes = new ArrayList<>(oldPath.retNodes);
+        if (newEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
+            this.retNodes.add(newEdge.getStartNode());
         }
+    }
+
+    public boolean compareRetNodes(CandidatePath path2) {
+        return this.retNodes.equals(path2.retNodes);
     }
 
     // return path information

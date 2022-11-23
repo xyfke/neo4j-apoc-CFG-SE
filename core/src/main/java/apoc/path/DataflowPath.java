@@ -273,6 +273,153 @@ public class DataflowPath {
 
     }
 
+    @UserFunction
+    @Description("apoc.path.allDataflowPathsV2(startNode, endNode, startEdge, endEdge, cfgCheck) - finds all shortest dataflow paths using forward propagation")
+    public List<Path> allDataflowPathsV2(@Name("startNode") Node startNode, @Name("endNode") Node endNode,
+                                       @Name("startEdge") Relationship startEdge, @Name("endEdge") Relationship endEdge,
+                                       @Name("cfgCheck") boolean cfgCheck) {
+
+        Node start;
+        Node end;
+        DataflowType category;  // indicating what type of dataflow path we are working with
+
+        // define needed variables
+        HashSet<Relationship> visitedEdges = new HashSet<Relationship>();
+        Queue<CandidatePath> queuePath = new LinkedList<>();
+        CandidatePath curPath = null;
+
+        List<CandidatePath> returnCandidates = new ArrayList<CandidatePath>();
+
+        if ((startNode != null) && (endNode != null)) {         // dataflow in middle components
+            start = startNode;
+            end = endNode;
+            category = DataflowType.INTRA;
+        } else if ((startNode != null) && (endEdge != null)) {  // suffix
+            start = startNode;
+            end = endEdge.getStartNode();
+            category = DataflowType.SUFFIX;
+        } else if ((startEdge != null) && (endNode != null)) {  // prefix
+            start = startEdge.getEndNode();
+            end = endNode;
+            category = DataflowType.PREFIX;
+            curPath = new CandidatePath(startEdge);
+            queuePath.add(curPath);
+        } else {                                                // not valid
+            return null;
+        }
+
+        Iterable<Relationship> dataflowRels;
+        HashMap<List<Node>, Relationship> startCFGs;
+
+        if (start.equals(end)) {
+            PathImpl.Builder builder = (startNode != null) ? new PathImpl.Builder(startNode):
+                    new PathImpl.Builder(startEdge.getStartNode());
+            builder = (startEdge != null) ? builder.push(startEdge) : builder;
+            builder = (endEdge != null) ? builder.push(endEdge) : builder;
+            return List.of(builder.build());
+        }
+
+        // if it is not prefix, because we already have a starting edge for prefix, no need to look for the first
+        if (category != DataflowType.PREFIX) {
+            dataflowRels = CFGValidationHelper.getNextRels(startNode, false);
+
+            // add the relationships connected to start node
+            for (Relationship dataflowRel : dataflowRels) {
+                if (!visitedEdges.contains(dataflowRel)) {
+                    CandidatePath candidatePath = new CandidatePath(dataflowRel);
+                    if (cfgCheck) {
+                        startCFGs = CFGValidationHelper.getConnectionNodes(dataflowRel, candidatePath,
+                                true, false);
+                        CFGValidationHelper.addCFGToCandidatePath(curPath, startCFGs, false);
+                    }
+                    queuePath.add(candidatePath);
+                }
+            }
+        } else {
+            if (cfgCheck) {
+                startCFGs = CFGValidationHelper.getConnectionNodes(startEdge, curPath,
+                        true, false);
+                CFGValidationHelper.addCFGToCandidatePath(curPath, startCFGs, false);
+            }
+        }
+
+        // cfgPath variable
+        List<Relationship> cfgPath = null;
+        int pathLen = -1;
+        boolean foundPath = false;
+        CandidatePath foundCandidatePath = null;
+
+        // keep track of visited relationships at current length
+        HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
+
+        while (!queuePath.isEmpty()) {
+
+            curPath = queuePath.poll();
+            int curLen = curPath.getPathSize();
+
+            if (foundPath && curLen > pathLen) {
+                // if path has been found and current path is longer than found path, can break
+                break;
+            }
+
+            if (foundPath && (foundCandidatePath != null) && (!foundCandidatePath.compareRetNodes(curPath))) {
+                continue;
+            }
+
+            if (curLen > pathLen) {
+                // add all relationships found at previous path length to visitedRels
+                visitedEdges.addAll(visitedEdge);
+                visitedEdge = new HashSet<Relationship>();
+            }
+            pathLen = curLen;
+
+            // continue searching only if does not require cfg check or cfg check passes
+            if ((!cfgCheck) || (getCFGPath(curPath))) {
+
+                visitedEdge.add(curPath.getLastRel());
+
+                // check if we reach end node
+                if (curPath.getEndNode().equals(end)) {
+
+                    if (category == DataflowType.SUFFIX) {
+                        CandidatePath vifPath = new CandidatePath(curPath, endEdge);
+                        if ((!cfgCheck) || (getCFGPath(vifPath))) {
+                            // build path, and return (exit)
+                            foundPath = true;
+                            foundCandidatePath = curPath;
+                            returnCandidates.add(vifPath);
+                        }
+                    } else {
+                        // build path, and return (exit)
+                        foundPath = true;
+                        foundCandidatePath = curPath;
+                        returnCandidates.add(curPath);
+                    }
+                }
+
+                dataflowRels = CFGValidationHelper.getNextRels(curPath.getEndNode(), false);
+                for (Relationship dataflowRel : dataflowRels) {
+                    if (!visitedEdges.contains(dataflowRel)) {
+                        CandidatePath newCandidatePath = new CandidatePath(curPath, dataflowRel);
+                        queuePath.add(newCandidatePath);
+                    }
+                }
+
+            }
+
+        }
+
+        List<Path> returnPaths = new ArrayList<Path>();
+        for (CandidatePath returnCandidate : returnCandidates) {
+            if (returnCandidate.getPathSize() > 0) {
+                returnPaths.add(returnCandidate.buildPath());
+            }
+        }
+
+        return returnPaths;
+
+    }
+
 
     // helper function: find and verify CFG path
     // returns:

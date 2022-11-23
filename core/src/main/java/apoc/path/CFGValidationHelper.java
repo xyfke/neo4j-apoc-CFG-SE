@@ -32,7 +32,7 @@ public class CFGValidationHelper {
     }
 
     public enum NodeLabel implements Label {
-        cVariable
+        cVariable, cReturn
     }
 
     public static enum DataflowType {
