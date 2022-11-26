@@ -194,9 +194,9 @@ public class CFGValidationHelper {
 
         for (List<Node> startCFG : startCFGs.keySet()) {
             if (isReverse) {
-                acceptedCFGs.add(startCFG.get(1));
-            } else {
                 acceptedCFGs.add(startCFG.get(0));
+            } else {
+                acceptedCFGs.add(startCFG.get(1));
             }
 
         }

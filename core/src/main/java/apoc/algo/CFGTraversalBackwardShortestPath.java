@@ -105,7 +105,7 @@ public class CFGTraversalBackwardShortestPath {
 
             this.candidatePath = candidatePath;
             this.startNodes = startNodes;
-            this.curCallStacks = candidatePath.callStacks;
+            //this.curCallStacks = candidatePath.callStacks;
             this.filterOut = new HashSet<>();
             this.cfgInvRets = cfgInvRets;
 

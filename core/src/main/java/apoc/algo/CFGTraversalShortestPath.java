@@ -112,7 +112,7 @@ public class CFGTraversalShortestPath {
                            HashSet<Relationship> cfgInvRets) {
             this.candidatePath = candidatePath;
             this.endNodes = endNodes;
-            this.curCallStacks = candidatePath.callStacks;
+            //this.curCallStacks = candidatePath.callStacks;
             this.filterOut = new HashSet<>();
             this.cfgInvRets = cfgInvRets;
             this.isVW = candidatePath.getLastRel().isType(CFGValidationHelper.RelTypes.varWrite);

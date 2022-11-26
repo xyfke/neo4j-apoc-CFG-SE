@@ -18,7 +18,7 @@ public class CandidatePath {
     public ArrayList<Relationship> partialResult;
     public HashSet<Node> validCFGs;
     public int pathSize;
-    public ArrayList<Stack<Relationship>> callStacks;
+    //public ArrayList<Stack<Relationship>> callStacks;
     public Node startNode;
     public Node endNode;
     public ArrayList<Node> retNodes;
@@ -29,6 +29,7 @@ public class CandidatePath {
         this.pathSize = 0;
         //this.callStacks = new ArrayList<>();
         this.retNodes = new ArrayList<>();
+        this.endNode = null;
     }
 
     public CandidatePath(Node endNode) {
@@ -47,6 +48,7 @@ public class CandidatePath {
         this.pathSize = 1;
         //this.callStacks = new ArrayList<>();
         this.retNodes = new ArrayList<>();
+        this.endNode = startEdge.getEndNode();
 
         if (startEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
             this.retNodes.add(startEdge.getStartNode());
@@ -59,6 +61,7 @@ public class CandidatePath {
         this.partialResult.add(newEdge);
         this.validCFGs = oldPath.validCFGs;
         this.pathSize = oldPath.getPathSize() + 1;
+        this.endNode = newEdge.getEndNode();
 
         // get all previous callStacks
         /**this.callStacks = new ArrayList<>();
@@ -72,6 +75,24 @@ public class CandidatePath {
         if (newEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
             this.retNodes.add(newEdge.getStartNode());
         }
+    }
+
+    // constructor to create new path from old path plus a single edge
+    public CandidatePath(CandidatePath oldPath) {
+        this.partialResult = new ArrayList(oldPath.partialResult);
+        this.validCFGs = oldPath.validCFGs;
+        this.pathSize = oldPath.getPathSize() + 1;
+        this.endNode = oldPath.endNode;
+
+        // get all previous callStacks
+        /**this.callStacks = new ArrayList<>();
+         for (Stack<Relationship> callStack : oldPath.callStacks) {
+         Stack<Relationship> tempStack = new Stack<>();
+         tempStack.addAll(callStack);
+         this.callStacks.add(tempStack);
+         }**/
+
+        this.retNodes = new ArrayList<>(oldPath.retNodes);
     }
 
     public boolean compareRetNodes(CandidatePath path2) {
@@ -99,11 +120,12 @@ public class CandidatePath {
 
     // get the end node of last relationship
     public Node getEndNode() {
-        if (this.pathSize >= 1) {
+        return this.endNode;
+        /**if (this.pathSize >= 1) {
             return this.partialResult.get(this.pathSize-1).getEndNode();
         } else {
             return null;
-        }
+        }**/
     }
 
     // get the start node of the last relationship
