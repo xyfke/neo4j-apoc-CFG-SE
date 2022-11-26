@@ -81,7 +81,7 @@ public class CandidatePath {
     public CandidatePath(CandidatePath oldPath) {
         this.partialResult = new ArrayList(oldPath.partialResult);
         this.validCFGs = oldPath.validCFGs;
-        this.pathSize = oldPath.getPathSize() + 1;
+        this.pathSize = oldPath.getPathSize();
         this.endNode = oldPath.endNode;
 
         // get all previous callStacks
