@@ -86,6 +86,7 @@ public class DataflowPath {
                         true, false);
                 CFGValidationHelper.addCFGToCandidatePath(curPath, startCFGs, false);
             }
+            queuePath.add(curPath);
         }
 
         // cfgPath variable
@@ -341,6 +342,7 @@ public class DataflowPath {
                         true, false);
                 CFGValidationHelper.addCFGToCandidatePath(curPath, startCFGs, false);
             }
+            queuePath.add(curPath);
         }
 
         // cfgPath variable
