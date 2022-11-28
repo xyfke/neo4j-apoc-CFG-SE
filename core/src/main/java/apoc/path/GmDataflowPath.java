@@ -55,13 +55,13 @@ public class GmDataflowPath {
             start = startNode;
             end = endNode;
 
-            curPath = new CandidatePath(endNode);
+            curPath = new CandidatePath(startNode);
         } else if ((startNode != null) && (endEdge != null)) {      // suffix: startNode, endEdge
             category = DataflowType.SUFFIX;
             start = startNode;
             end = endEdge.getStartNode();
 
-            curPath = new CandidatePath(endNode);
+            curPath = new CandidatePath(startNode);
         } else {
             return null;
         }
@@ -91,6 +91,8 @@ public class GmDataflowPath {
                 builder = (startEdge != null) ? builder.push(startEdge) : builder;
                 builder = (endEdge != null) ? builder.push(endEdge) : builder;
                 return builder.build();
+            } else {
+                return null;
             }
         }
 
