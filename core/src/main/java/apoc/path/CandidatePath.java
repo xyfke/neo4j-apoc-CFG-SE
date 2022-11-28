@@ -21,14 +21,14 @@ public class CandidatePath {
     //public ArrayList<Stack<Relationship>> callStacks;
     public Node startNode;
     public Node endNode;
-    public ArrayList<Node> retNodes;
+    public Node retNodes;
 
     public CandidatePath() {
         this.partialResult = new ArrayList();
         this.validCFGs = new HashSet<Node>();
         this.pathSize = 0;
         //this.callStacks = new ArrayList<>();
-        this.retNodes = new ArrayList<>();
+        this.retNodes = null;
         this.endNode = null;
     }
 
@@ -38,7 +38,7 @@ public class CandidatePath {
         this.pathSize = 0;
         //this.callStacks = new ArrayList<>();
         this.endNode = endNode;
-        this.retNodes = new ArrayList<>();
+        this.retNodes = null;
     }
 
     // constructor for a single edge
@@ -47,11 +47,11 @@ public class CandidatePath {
         this.validCFGs = new HashSet<Node>();
         this.pathSize = 1;
         //this.callStacks = new ArrayList<>();
-        this.retNodes = new ArrayList<>();
+        this.retNodes = null;
         this.endNode = startEdge.getEndNode();
 
         if (startEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
-            this.retNodes.add(startEdge.getStartNode());
+            this.retNodes = startEdge.getStartNode();
         }
     }
 
@@ -71,10 +71,10 @@ public class CandidatePath {
             this.callStacks.add(tempStack);
         }**/
 
-        this.retNodes = new ArrayList<>(oldPath.retNodes);
-        if (newEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
+        this.retNodes = oldPath.retNodes;
+        /**if (newEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
             this.retNodes.add(newEdge.getStartNode());
-        }
+        }**/
     }
 
     // constructor to create new path from old path plus a single edge
@@ -92,11 +92,18 @@ public class CandidatePath {
          this.callStacks.add(tempStack);
          }**/
 
-        this.retNodes = new ArrayList<>(oldPath.retNodes);
+        this.retNodes = oldPath.retNodes;
     }
 
     public boolean compareRetNodes(CandidatePath path2) {
-        return this.retNodes.equals(path2.retNodes);
+        if ((path2.retNodes == null) && (this.retNodes == null)) {
+            return true;
+        } else if ((path2.retNodes != null) && (this.retNodes != null)) {
+            return this.retNodes.equals(path2.retNodes);
+        } else {
+            return false;
+        }
+
     }
 
     // return path information

@@ -101,8 +101,8 @@ public class GmDataflowPath {
             dataflowRels = CFGValidationHelper.getNextRels(start, false);
             for (Relationship dataflowRel : dataflowRels) {
                 if (!visitedEdge.contains(dataflowRel)) {
-                    curPath = new CandidatePath(curPath, dataflowRel);
-                    queuePath.add(curPath);
+                    CandidatePath candPath = new CandidatePath(curPath, dataflowRel);
+                    queuePath.add(candPath);
                 }
             }
         }
@@ -127,7 +127,7 @@ public class GmDataflowPath {
 
                     CandidatePath returnPath = (category == DataflowType.SUFFIX) ?
                             new CandidatePath(curPath, endEdge) :
-                            curPath;
+                            new CandidatePath(curPath);
                     isStartPW = ((category != DataflowType.PREFIX)
                             && (curPath.getPathSize() == 1));
                     boolean isEndPW = (category != DataflowType.SUFFIX);
@@ -179,17 +179,21 @@ public class GmDataflowPath {
             category = DataflowType.PREFIX;
             start = startEdge.getEndNode();
             end = endNode;
+
             curPath = new CandidatePath(startEdge);
             queuePath.add(curPath);
         } else if ((startNode != null) && (endNode != null)) {      // intra
             category = DataflowType.INTRA;
             start = startNode;
             end = endNode;
-            curPath = new CandidatePath(endNode);
+
+            curPath = new CandidatePath(end);
         } else if ((startNode != null) && (endEdge != null)) {      // suffix
             category = DataflowType.SUFFIX;
             start = startNode;
             end = endEdge.getStartNode();
+
+            curPath = new CandidatePath(end);
         } else {
             return null;
         }
@@ -227,8 +231,8 @@ public class GmDataflowPath {
             dataflowRels = CFGValidationHelper.getNextRels(start, false);
             for (Relationship dataflowRel : dataflowRels) {
                 if (!visitedEdges.contains(dataflowRel)) {
-                    curPath = new CandidatePath(curPath, dataflowRel);
-                    queuePath.add(curPath);
+                    CandidatePath candPath = new CandidatePath(curPath, dataflowRel);
+                    queuePath.add(candPath);
                 }
             }
         }
@@ -328,17 +332,21 @@ public class GmDataflowPath {
             category = DataflowType.PREFIX;
             start = startEdge.getEndNode();
             end = endNode;
+
             curPath = new CandidatePath(startEdge);
             queuePath.add(curPath);
         } else if ((startNode != null) && (endNode != null)) {      // intra: startNode, endNode
             category = DataflowType.INTRA;
             start = startNode;
             end = endNode;
+
             curPath = new CandidatePath(endNode);
         } else if ((startNode != null) && (endEdge != null)) {      // suffix: startNode, endEdge
             category = DataflowType.SUFFIX;
             start = startNode;
             end = endEdge.getStartNode();
+
+            curPath = new CandidatePath(endNode);
         } else {
             return null;
         }
@@ -376,8 +384,8 @@ public class GmDataflowPath {
             dataflowRels = CFGValidationHelper.getNextRels(start, false);
             for (Relationship dataflowRel : dataflowRels) {
                 if (!visitedEdges.contains(dataflowRel)) {
-                    curPath = new CandidatePath(curPath, dataflowRel);
-                    queuePath.add(curPath);
+                    CandidatePath candPath = new CandidatePath(curPath, dataflowRel);
+                    queuePath.add(candPath);
                 }
             }
         }
@@ -429,6 +437,7 @@ public class GmDataflowPath {
 
                     if ((!cfgCheck) || (gmGetCFGPath(returnPath, isStartPW, isEndPW))) {
                         foundPath = true;
+                        foundCandidatePath = returnPath;
                         returnCandidates.add(returnPath);
                     }
                 }
