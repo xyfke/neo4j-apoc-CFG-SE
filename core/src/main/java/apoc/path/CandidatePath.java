@@ -21,14 +21,14 @@ public class CandidatePath {
     //public ArrayList<Stack<Relationship>> callStacks;
     public Node startNode;
     public Node endNode;
-    public Node retNodes;
+    public ArrayList<Relationship> retRel;
 
     public CandidatePath() {
         this.partialResult = new ArrayList();
         this.validCFGs = new HashSet<Node>();
         this.pathSize = 0;
         //this.callStacks = new ArrayList<>();
-        this.retNodes = null;
+        this.retRel = new ArrayList<>();
         this.endNode = null;
     }
 
@@ -38,7 +38,7 @@ public class CandidatePath {
         this.pathSize = 0;
         //this.callStacks = new ArrayList<>();
         this.endNode = endNode;
-        this.retNodes = null;
+        this.retRel = new ArrayList<>();
     }
 
     // constructor for a single edge
@@ -47,11 +47,11 @@ public class CandidatePath {
         this.validCFGs = new HashSet<Node>();
         this.pathSize = 1;
         //this.callStacks = new ArrayList<>();
-        this.retNodes = null;
         this.endNode = startEdge.getEndNode();
+        this.retRel = new ArrayList<>();
 
         if (startEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
-            this.retNodes = startEdge.getStartNode();
+            this.retRel.add(startEdge);
         }
     }
 
@@ -62,6 +62,7 @@ public class CandidatePath {
         this.validCFGs = oldPath.validCFGs;
         this.pathSize = oldPath.getPathSize() + 1;
         this.endNode = newEdge.getEndNode();
+        this.retRel = new ArrayList<>(oldPath.retRel);
 
         // get all previous callStacks
         /**this.callStacks = new ArrayList<>();
@@ -71,10 +72,9 @@ public class CandidatePath {
             this.callStacks.add(tempStack);
         }**/
 
-        this.retNodes = oldPath.retNodes;
-        /**if (newEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
-            this.retNodes.add(newEdge.getStartNode());
-        }**/
+        if (newEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
+            this.retRel.add(newEdge);
+        }
     }
 
     // constructor to create new path from old path plus a single edge
@@ -92,14 +92,13 @@ public class CandidatePath {
          this.callStacks.add(tempStack);
          }**/
 
-        this.retNodes = oldPath.retNodes;
+        this.retRel = new ArrayList<>(oldPath.retRel);
     }
 
     public boolean compareRetNodes(CandidatePath path2) {
-        if ((path2.retNodes == null) && (this.retNodes == null)) {
-            return true;
-        } else if ((path2.retNodes != null) && (this.retNodes != null)) {
-            return this.retNodes.equals(path2.retNodes);
+
+        if ((!path2.retRel.isEmpty()) && (!this.retRel.isEmpty())) {
+            return this.retRel.get(0).getStartNode().equals(path2.retRel.get(0).getStartNode());
         } else {
             return false;
         }

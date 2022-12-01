@@ -285,7 +285,7 @@ public class DataflowPath {
         DataflowType category;  // indicating what type of dataflow path we are working with
 
         // define needed variables
-        HashSet<Relationship> visitedEdges = new HashSet<Relationship>();
+        HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
         Queue<CandidatePath> queuePath = new LinkedList<>();
         CandidatePath curPath = null;
 
@@ -326,7 +326,7 @@ public class DataflowPath {
 
             // add the relationships connected to start node
             for (Relationship dataflowRel : dataflowRels) {
-                if (!visitedEdges.contains(dataflowRel)) {
+                if (!visitedEdge.contains(dataflowRel)) {
                     CandidatePath candidatePath = new CandidatePath(dataflowRel);
                     if (cfgCheck) {
                         startCFGs = CFGValidationHelper.getConnectionNodes(dataflowRel, candidatePath,
@@ -347,33 +347,25 @@ public class DataflowPath {
 
         // cfgPath variable
         List<Relationship> cfgPath = null;
-        int pathLen = -1;
-        boolean foundPath = false;
         CandidatePath foundCandidatePath = null;
+        ArrayList<ArrayList<Relationship>> retCovered = new ArrayList<>();
 
         // keep track of visited relationships at current length
-        HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
+        //HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
 
         while (!queuePath.isEmpty()) {
 
             curPath = queuePath.poll();
-            int curLen = curPath.getPathSize();
 
-            if (foundPath && curLen > pathLen) {
-                // if path has been found and current path is longer than found path, can break
-                break;
+            if (foundCandidatePath != null) {
+                if ((!curPath.compareRetNodes(foundCandidatePath))) {
+                    continue;
+                } else {
+                    if (retCovered.contains(curPath.retRel)) {
+                        continue;
+                    }
+                }
             }
-
-            if (foundPath && (!foundCandidatePath.compareRetNodes(curPath))) {
-                continue;
-            }
-
-            if (curLen > pathLen) {
-                // add all relationships found at previous path length to visitedRels
-                visitedEdges.addAll(visitedEdge);
-                visitedEdge = new HashSet<Relationship>();
-            }
-            pathLen = curLen;
 
             // continue searching only if does not require cfg check or cfg check passes
             if ((!cfgCheck) || (getCFGPath(curPath))) {
@@ -387,21 +379,23 @@ public class DataflowPath {
                         CandidatePath vifPath = new CandidatePath(curPath, endEdge);
                         if ((!cfgCheck) || (getCFGPath(vifPath))) {
                             // build path, and return (exit)
-                            foundPath = true;
                             foundCandidatePath = curPath;
                             returnCandidates.add(vifPath);
+                            retCovered.add(vifPath.retRel);
+                            continue;
                         }
                     } else {
                         // build path, and return (exit)
-                        foundPath = true;
                         foundCandidatePath = curPath;
                         returnCandidates.add(curPath);
+                        retCovered.add(curPath.retRel);
+                        continue;
                     }
                 }
 
                 dataflowRels = CFGValidationHelper.getNextRels(curPath.getEndNode(), false);
                 for (Relationship dataflowRel : dataflowRels) {
-                    if (!visitedEdges.contains(dataflowRel)) {
+                    if (!visitedEdge.contains(dataflowRel)) {
                         CandidatePath newCandidatePath = new CandidatePath(curPath, dataflowRel);
                         queuePath.add(newCandidatePath);
                     }
