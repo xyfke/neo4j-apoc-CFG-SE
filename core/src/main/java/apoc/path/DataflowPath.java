@@ -355,7 +355,7 @@ public class DataflowPath {
 
         while (!queuePath.isEmpty()) {
 
-            curPath = queuePath.poll();
+            curPath = queuePath.remove();
 
             if (foundCandidatePath != null) {
                 if ((!curPath.compareRetNodes(foundCandidatePath))) {
@@ -381,14 +381,14 @@ public class DataflowPath {
                             // build path, and return (exit)
                             foundCandidatePath = curPath;
                             returnCandidates.add(vifPath);
-                            retCovered.add(vifPath.retRel);
+                            retCovered.addAll(vifPath.getRetComp());
                             continue;
                         }
                     } else {
                         // build path, and return (exit)
                         foundCandidatePath = curPath;
                         returnCandidates.add(curPath);
-                        retCovered.add(curPath.retRel);
+                        retCovered.addAll(curPath.getRetComp());
                         continue;
                     }
                 }

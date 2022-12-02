@@ -105,6 +105,21 @@ public class CandidatePath {
 
     }
 
+    public ArrayList<ArrayList<Relationship>> getRetComp() {
+
+        ArrayList<ArrayList<Relationship>> visitedComps = new ArrayList<>();
+        ArrayList<Relationship> comp = new ArrayList<>();
+
+        for (Relationship retEdge : this.retRel) {
+            comp = new ArrayList<>(comp);
+            comp.add(retEdge);
+            visitedComps.add(comp);
+        }
+
+        return visitedComps;
+
+    }
+
     // return path information
     // get the last relationship in the path
     public Relationship getLastRel() {
