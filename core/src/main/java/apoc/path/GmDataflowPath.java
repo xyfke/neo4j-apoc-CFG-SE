@@ -273,14 +273,21 @@ public class GmDataflowPath {
                 // check if we reach end node
                 if (curPath.getEndNode().equals(end)) {
 
-                    CandidatePath returnPath = new CandidatePath(curPath, endEdge);
-                    isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 1));
-                    isEndPW = (category != DataflowType.SUFFIX);
+                    if (category == DataflowType.SUFFIX) {
+                        CandidatePath returnPath = new CandidatePath(curPath, endEdge);
+                        isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 1));
+                        isEndPW = (category != DataflowType.SUFFIX);
 
-                    if ((!cfgCheck) || (gmGetCFGPath(returnPath, isStartPW, isEndPW))) {
+                        if ((!cfgCheck) || (gmGetCFGPath(returnPath, isStartPW, isEndPW))) {
+                            foundPath = true;
+                            returnCandidates.add(returnPath);
+                        }
+                    } else {
                         foundPath = true;
-                        returnCandidates.add(returnPath);
+                        returnCandidates.add(curPath);
                     }
+
+
                 }
 
                 dataflowRels = CFGValidationHelper.getNextRels(curPath.getEndNode(), false);
@@ -422,16 +429,24 @@ public class GmDataflowPath {
                 // check if we reach end node
                 if (curPath.getEndNode().equals(end)) {
 
-                    CandidatePath returnPath = new CandidatePath(curPath, endEdge);
-                    isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 1));
-                    isEndPW = (category != DataflowType.SUFFIX);
+                    if (category == DataflowType.SUFFIX) {
+                        CandidatePath returnPath = new CandidatePath(curPath, endEdge);
+                        isStartPW = ((category != DataflowType.PREFIX) && (curPath.getPathSize() == 1));
+                        isEndPW = (category != DataflowType.SUFFIX);
 
-                    if ((!cfgCheck) || (gmGetCFGPath(returnPath, isStartPW, isEndPW))) {
-                        foundCandidatePath = returnPath;
-                        retCovered.addAll(returnPath.getRetComp());
-                        returnCandidates.add(returnPath);
+                        if ((!cfgCheck) || (gmGetCFGPath(returnPath, isStartPW, isEndPW))) {
+                            foundCandidatePath = returnPath;
+                            retCovered.addAll(returnPath.getRetComp());
+                            returnCandidates.add(returnPath);
+                            continue;
+                        }
+                    } else {
+                        retCovered.addAll(curPath.getRetComp());
+                        returnCandidates.add(curPath);
                         continue;
                     }
+
+
                 }
 
                 dataflowRels = CFGValidationHelper.getNextRels(curPath.getEndNode(), false);
