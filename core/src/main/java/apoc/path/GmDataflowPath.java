@@ -441,6 +441,7 @@ public class GmDataflowPath {
                             continue;
                         }
                     } else {
+                        foundCandidatePath = curPath;
                         retCovered.addAll(curPath.getRetComp());
                         returnCandidates.add(curPath);
                         continue;

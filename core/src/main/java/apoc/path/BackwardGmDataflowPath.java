@@ -1,8 +1,10 @@
 package apoc.path;
 
+import apoc.algo.CFGShortestPath;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
+import org.neo4j.graphalgo.impl.util.PathImpl;
 import org.neo4j.graphdb.*;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -194,6 +196,163 @@ public class BackwardGmDataflowPath {
 
     }
 
+    @UserFunction
+    @Description("apoc.path.allBackwardGmDataflowPaths(startNode, endNode, startEdge, endEdge, cfgCheck) - finds all gm shortest dataflow paths using backward propagation")
+    public List<Path> allBackwardGmDataflowPathsV2(@Name("startNode") Node startNode,
+                                                   @Name("endNode") Node endNode,
+                                                   @Name("startEdge") Relationship startEdge,
+                                                   @Name("endEdge") Relationship endEdge,
+                                                   @Name("cfgCheck") boolean cfgCheck) {
+
+        Node start;
+        Node end;
+        DataflowType category;
+        Iterable<Relationship> dataflowRels;
+
+        // define needed variables
+        List<CandidatePath> returnCandidates = new ArrayList<CandidatePath>();
+        HashSet<Relationship> visitedEdge = new HashSet<Relationship>();
+        Queue<CandidatePath> queuePath = new LinkedList<>();
+
+        // add first edge to path
+        CandidatePath curPath = new CandidatePath();
+
+        if ((startEdge != null) && (endNode != null)) {         // prefix: startEdge, endNode
+            category = DataflowType.PREFIX;
+            start = startEdge.getEndNode();
+            end = endNode;
+
+            curPath = new CandidatePath(endNode);
+            //queuePath.add(curPath);
+        } else if ((startNode != null) && (endNode != null)) {      // intra: startNode, endNode
+            category = DataflowType.INTRA;
+            start = startNode;
+            end = endNode;
+
+            curPath = new CandidatePath(startNode);
+        } else if ((startNode != null) && (endEdge != null)) {      // suffix: startNode, endEdge
+            category = DataflowType.SUFFIX;
+            start = startNode;
+            end = endEdge.getStartNode();
+
+            curPath = new CandidatePath(endEdge);
+            queuePath.add(curPath);
+        } else {
+            return null;
+        }
+
+        // PREFIX - startEdge to (endNode -pwSource)
+        // INTRA - (startNode pwDestination) to (endNode - pwSource)
+        // SUFFIX - (startNode pwDestination) to endEdge
+        // Adding first CFGs to Candidate path
+        if (cfgCheck) {
+            HashMap<List<Node>, Relationship> firstCFGs = (category != DataflowType.SUFFIX) ?
+                    CFGValidationHelper.getParWriteConnectionNodes(end, curPath, false) :
+                    CFGValidationHelper.getConnectionNodes(endEdge, curPath,
+                            false, false);
+            CFGValidationHelper.addCFGToCandidatePath(curPath, firstCFGs, true);
+        }
+
+        // check for already found values
+        if (start.equals(end)) {
+            curPath = (category == DataflowType.PREFIX) ? new CandidatePath(curPath, startEdge) :
+                    curPath;
+            if ((!cfgCheck) || (backwardGmGetCFGPath(curPath,
+                    (category != DataflowType.PREFIX),
+                    (category != DataflowType.SUFFIX)))) {
+                PathImpl.Builder builder = (startEdge != null) ?
+                        new PathImpl.Builder(startEdge.getStartNode()) :
+                        new PathImpl.Builder(start);
+                builder = (startEdge != null) ? builder.push(startEdge) : builder;
+                builder = (endEdge != null) ? builder.push(endEdge) : builder;
+                return List.of(builder.build());
+            }
+        }
+
+        if (category != DataflowType.SUFFIX) {
+            dataflowRels = CFGValidationHelper.getPrevRels(endNode, false);
+            for (Relationship dataflowRel : dataflowRels) {
+                if (!visitedEdge.contains(dataflowRel)) {
+                    CandidatePath candPath = new CandidatePath(curPath, dataflowRel);
+                    queuePath.add(candPath);
+                }
+            }
+        }
+
+        CandidatePath foundCandidatePath = null;
+        ArrayList<ArrayList<Relationship>> retCovered = new ArrayList<>();
+
+        while (!queuePath.isEmpty()) {
+
+            // get the last path
+            curPath = queuePath.remove();
+
+            if (foundCandidatePath != null) {
+                if ((!curPath.compareRetNodes(foundCandidatePath))) {
+                    continue;
+                } else {
+                    if (retCovered.contains(curPath.retRel)) {
+                        continue;
+                    }
+                }
+            }
+
+            // boolean variables indicating whether we are doing a start or end check
+            boolean isStartPW = false;
+            boolean isEndPW = ((category != DataflowType.SUFFIX) && (curPath.getPathSize() == 1));
+
+            // continue searching only if does not require cfg check or cfg check passes
+            if ((!cfgCheck) || (backwardGmGetCFGPath(curPath,isStartPW, isEndPW))) {
+
+                visitedEdge.add(curPath.getLastRel());
+
+                // check if we reach end node
+                if (curPath.getStartNode().equals(start)) {
+
+                    if (category == DataflowType.PREFIX) {
+                        CandidatePath returnPath = new CandidatePath(curPath, startEdge);
+                        isStartPW = (category != DataflowType.PREFIX);
+                        isEndPW = ((category != DataflowType.SUFFIX) && (curPath.getPathSize() == 1));
+
+                        if ((!cfgCheck) || (backwardGmGetCFGPath(returnPath, isStartPW, isEndPW))) {
+                            foundCandidatePath = returnPath;
+                            retCovered.addAll(returnPath.getRetComp());
+                            returnCandidates.add(returnPath);
+                            continue;
+                        }
+                    } else {
+                        foundCandidatePath = curPath;
+                        retCovered.addAll(curPath.getRetComp());
+                        returnCandidates.add(curPath);
+                        continue;
+                    }
+
+
+                }
+
+                dataflowRels = CFGValidationHelper.getPrevRels(curPath.getStartNode(), false);
+                for (Relationship dataflowRel : dataflowRels) {
+                    if (!visitedEdge.contains(dataflowRel)) {
+                        CandidatePath newCandidatePath = new CandidatePath(curPath, dataflowRel);
+                        queuePath.add(newCandidatePath);
+                    }
+                }
+
+            }
+
+        }
+
+        List<Path> returnPaths = new ArrayList<Path>();
+        for (CandidatePath returnCandidate : returnCandidates) {
+            if (returnCandidate.getPathSize() > 0) {
+                returnPaths.add(returnCandidate.backwardBuildPath());
+            }
+        }
+
+
+        return returnPaths;
+
+    }
 
 
     // helper function: find and verify CFG path
@@ -202,12 +361,19 @@ public class BackwardGmDataflowPath {
     public boolean backwardGmGetCFGPath(CandidatePath candidatePath, boolean isStartPW,
                                 boolean isEndPW) {
 
-        if (candidatePath.getPathSize() < 2) {
-            return true;
-        }
+        // obtain cfg nodes and relationships associated with r1
+        HashSet<Node> endNodes = candidatePath.validCFGs;
 
-        Relationship nextRel = candidatePath.getSecondLastRel();
+        // for CFG path - comparison
+        // a <- varWrite - b <- varWrite - c
+        // [a <- varWrite - b, b <- varWrite - c]
+        // endNode(curRel) == startNode(nextRel)
+        Node targetNode = (isStartPW) ? candidatePath.getStartNode() : candidatePath.getEndNode();
         Relationship curRel = candidatePath.getLastRel();
+        Relationship nextRel = (isStartPW) ? null : candidatePath.getSecondLastRel();
+        boolean filterVar = (curRel != null) && (!curRel.isType(RelTypes.parWrite)) &&
+                (targetNode.hasLabel(CFGValidationHelper.NodeLabel.cVariable));
+
 
         PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
                 new BasicEvaluationContext(tx, db),
@@ -215,39 +381,29 @@ public class BackwardGmDataflowPath {
                 (int) Integer.MAX_VALUE
         );
 
-        // obtain cfg nodes and relationships associated with r1 and r2
         HashMap<List<Node>, Relationship> startCFGs = (isStartPW) ?
-                CFGValidationHelper.getParWriteConnectionNodes(curRel.getStartNode(), candidatePath, true) :
-                CFGValidationHelper.getConnectionNodes(curRel, candidatePath, true, true);
-        HashMap<List<Node>, Relationship> endCFGs = (isEndPW) ?
-                CFGValidationHelper.getParWriteConnectionNodes(nextRel.getEndNode(), candidatePath, false) :
-                CFGValidationHelper.getConnectionNodes(nextRel, candidatePath, false, true);
+                CFGValidationHelper.getParWriteConnectionNodes(targetNode, candidatePath, true) :
+                CFGValidationHelper.getConnectionNodes(curRel, candidatePath, true, false);
 
-        Path cfgPath = null;
-        Node n1 = null;
-        Node n2 = null;
+        CFGShortestPath shortestPath = new CFGShortestPath(
+                new BasicEvaluationContext(tx, db),
+                (int) Integer.MAX_VALUE,
+                CFGValidationHelper.buildPathExpander("nextCFGBlock>"));
+        HashSet<Node> acceptedCFGStart = new HashSet<>();
 
-        if ((startCFGs.isEmpty()) || (endCFGs.isEmpty())) {
-            return false;
-        }
-
-        HashSet<Node> acceptedCFGEnd = new HashSet<>();
-
-        // if we can find a path from the cfg node associated with r1 to the cfg node associated
-        // with r2, then there exists a cfg path
-        for (List<Node> listStartCFG : startCFGs.keySet()) {
-            Node startCFGNode = listStartCFG.get(0);
-            for (List<Node> listEndCFG : endCFGs.keySet()) {
-                cfgPath = algo.findSinglePath(startCFGNode, listEndCFG.get(0));
+        for (Node dstNode : endNodes) {
+            for (List<Node> startCFG : startCFGs.keySet()) {
+                Node srcNode = startCFG.get(1);
+                Path cfgPath = shortestPath.findSinglePath(srcNode, dstNode, targetNode, filterVar);
                 if (cfgPath != null) {
-                    acceptedCFGEnd.add(listEndCFG.get(1));
+                    acceptedCFGStart.add(startCFG.get(0));
                 }
             }
         }
 
-        candidatePath.updateCFG(acceptedCFGEnd);
+        candidatePath.updateCFG(acceptedCFGStart);
 
-        return !acceptedCFGEnd.isEmpty();
+        return !acceptedCFGStart.isEmpty();
 
     }
 
