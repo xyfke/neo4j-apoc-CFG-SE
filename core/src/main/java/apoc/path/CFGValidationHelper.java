@@ -145,6 +145,8 @@ public class CFGValidationHelper {
             targetCFGs = (start) ?
                     node.getRelationships(Direction.OUTGOING, RelTypes.rwDestination) :
                     node.getRelationships(Direction.OUTGOING, RelTypes.rwSource);
+        } else {
+            return cfgNodes;
         }
 
         for (Relationship targetCFG : targetCFGs) {
