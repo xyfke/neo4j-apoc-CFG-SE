@@ -128,9 +128,38 @@ public class CFGValidationHelper {
 
     // helper function: return start and end CFG nodes along with the connections for gm parWrite
     // return: a hashset of CFG nodes
+    public static HashMap<List<Node>, Relationship> getStartEndNodes(Node node, String type, boolean start) {
+
+        HashMap<List<Node>, Relationship> cfgNodes = new HashMap<>();
+        Iterable<Relationship> targetCFGs = null;
+
+        if (type.equals("varWriteOut")) {
+            targetCFGs = (start) ?
+                    node.getRelationships(Direction.OUTGOING, RelTypes.vwDestination) :
+                    node.getRelationships(Direction.OUTGOING, RelTypes.vwSource);
+        } else if (type.equals("parWriteOut")) {
+            targetCFGs = (start) ?
+                    node.getRelationships(Direction.OUTGOING, RelTypes.pwDestination) :
+                    node.getRelationships(Direction.OUTGOING, RelTypes.pwSource);
+        } else if (type.equals("retWriteOut")) {
+            targetCFGs = (start) ?
+                    node.getRelationships(Direction.OUTGOING, RelTypes.rwDestination) :
+                    node.getRelationships(Direction.OUTGOING, RelTypes.rwSource);
+        }
+
+        for (Relationship targetCFG : targetCFGs) {
+            cfgNodes.put(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()), null);
+        }
+
+        return cfgNodes;
+
+    }
+
+    // helper function: return start and end CFG nodes along with the connections for gm parWrite
+    // return: a hashset of CFG nodes
     public static HashMap<List<Node>, Relationship> getParWriteConnectionNodes(Node pwNode,
                                                                                CandidatePath candidatePath,
-                                                                                boolean start) {
+                                                                               boolean start) {
 
         HashMap<List<Node>, Relationship> cfgNodes = new HashMap<>();
         Iterable<Relationship> targetCFGs = (start) ?
