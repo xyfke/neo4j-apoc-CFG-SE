@@ -357,6 +357,7 @@ public class DataflowPath {
 
             curPath = queuePath.remove();
 
+
             if (foundCandidatePath != null) {
                 if ((!curPath.compareRetNodes(foundCandidatePath))) {
                     continue;
