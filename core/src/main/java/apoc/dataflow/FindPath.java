@@ -1,14 +1,12 @@
 package apoc.dataflow;
 
+import apoc.Pools;
 import apoc.path.CFGValidationHelper;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphalgo.impl.path.ShortestPath;
 import org.neo4j.graphalgo.impl.util.PathImpl;
 import org.neo4j.graphdb.*;
-import org.neo4j.procedure.Context;
-import org.neo4j.procedure.Description;
-import org.neo4j.procedure.Name;
-import org.neo4j.procedure.UserFunction;
+import org.neo4j.procedure.*;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -20,6 +18,12 @@ public class FindPath {
 
     @Context
     public Transaction tx;
+
+    @Context
+    public Pools pool;
+
+    @Context
+    public TerminationGuard terminationGuard;
 
 
     private DataflowHelper.DataflowType getCategory(Node startNode, Node endNode, Relationship startEdge,
@@ -79,6 +83,7 @@ public class FindPath {
 
         @Override
         public List<Path> call() throws Exception {
+            terminationGuard.check();
             return rosAllShortestMulti(this.startNode, this.endNode, this.startEdge, this.endEdge,
                     this.pubVar, this.pubTarget, this.category, this.cfgCheck);
         }
@@ -94,11 +99,11 @@ public class FindPath {
 
         ArrayList<Path> returnedPath = new ArrayList<>();
         List<Callable<List<Path>>> findPaths = new ArrayList<>();
-        //List<Future<List<Path>>> list = new ArrayList<Future<List<Path>>>();
+        List<Future<List<Path>>> list = new ArrayList<Future<List<Path>>>();
 
         int threads = (int) numThreads;
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
-        CompletionService<List<Path>> executorCompletionService= new ExecutorCompletionService<>(pool);
+        ExecutorService es = pool.getDefaultExecutorService();
+        //CompletionService<List<Path>> executorCompletionService= new ExecutorCompletionService<>(es);
         int numTask = 0;
 
         //int threads =  Runtime.getRuntime().availableProcessors();
@@ -111,54 +116,36 @@ public class FindPath {
                 );**/
                 //findPaths.add(new DataflowCallable(startEdge, endEdge, cfgCheck));
 
-                /**Future<List<Path>> ftr = pool.submit(
+                Future<List<Path>> ftr = es.submit(
                         new DataflowCallable(startEdge, endEdge, cfgCheck)
                 );
-                list.add(ftr);**/
+                list.add(ftr);
 
-                /**Thread thread = new Thread(futureTask);
-                thread.start();**/
-                executorCompletionService.submit(
+
+                /**executorCompletionService.submit(
                         new DataflowCallable(startEdge, endEdge, cfgCheck)
-                );
+                );**/
 
             }
 
         }
 
         //List<Future<List<Path>>> list = pool.invokeAll(findPaths);
-        try {
-            for (int i = 0; i < numTask; i++) {
-                try {
-                    final List<Path> result = executorCompletionService.take().get();
-                    if ((result != null) && (!result.isEmpty())) {
-                        returnedPath.addAll(result);
-                    }
-                } catch (InterruptedException e) {
-                    // If an InterruptedException or ExecutionException is thrown, print the exception message
-                    String k = e.getMessage();
-                } catch (ExecutionException e) {
-                    String k = e.getMessage();
-                }
-            }
-        } finally {
-            pool.shutdownNow();
+
+        for (Future<List<Path>> ftr : list) {
             try {
-                // Wait a while for existing tasks to terminate
-                if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
-                    // Cancel currently executing tasks forcefully
-                    pool.shutdownNow();
-                    // Wait a while for tasks to respond to being cancelled
-                    if (!pool.awaitTermination(60, TimeUnit.SECONDS))
-                        System.err.println("Pool did not terminate");
+                final List<Path> result = ftr.get();
+                if ((result != null) && (!result.isEmpty())) {
+                    returnedPath.addAll(result);
                 }
-            } catch (InterruptedException ex) {
-                // (Re-)Cancel if current thread also interrupted
-                pool.shutdownNow();
-                // Preserve interrupt status
-                Thread.currentThread().interrupt();
+            } catch (InterruptedException e) {
+                // If an InterruptedException or ExecutionException is thrown, print the exception message
+                String k = e.getMessage();
+            } catch (ExecutionException e) {
+                String k = e.getMessage();
             }
         }
+
 
 
         /**try {
