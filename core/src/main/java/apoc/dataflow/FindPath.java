@@ -127,19 +127,39 @@ public class FindPath {
         }
 
         //List<Future<List<Path>>> list = pool.invokeAll(findPaths);
-        for (int i = 0; i < numTask; i++) {
-            try {
-                final List<Path> result = executorCompletionService.take().get();
-                if ((result != null) && (!result.isEmpty())) {
-                    returnedPath.addAll(result);
+        try {
+            for (int i = 0; i < numTask; i++) {
+                try {
+                    final List<Path> result = executorCompletionService.take().get();
+                    if ((result != null) && (!result.isEmpty())) {
+                        returnedPath.addAll(result);
+                    }
+                } catch (InterruptedException e) {
+                    // If an InterruptedException or ExecutionException is thrown, print the exception message
+                    String k = e.getMessage();
+                } catch (ExecutionException e) {
+                    String k = e.getMessage();
                 }
-            } catch (InterruptedException e) {
-                // If an InterruptedException or ExecutionException is thrown, print the exception message
-                String k = e.getMessage();
-            } catch (ExecutionException e) {
-                String k = e.getMessage();
+            }
+        } finally {
+            pool.shutdownNow();
+            try {
+                // Wait a while for existing tasks to terminate
+                if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
+                    // Cancel currently executing tasks forcefully
+                    pool.shutdownNow();
+                    // Wait a while for tasks to respond to being cancelled
+                    if (!pool.awaitTermination(60, TimeUnit.SECONDS))
+                        System.err.println("Pool did not terminate");
+                }
+            } catch (InterruptedException ex) {
+                // (Re-)Cancel if current thread also interrupted
+                pool.shutdownNow();
+                // Preserve interrupt status
+                Thread.currentThread().interrupt();
             }
         }
+
 
         /**try {
 
@@ -147,7 +167,7 @@ public class FindPath {
             e.printStackTrace();
         }**/
 
-        pool.shutdown();
+
 
         return returnedPath;
 
