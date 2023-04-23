@@ -11,7 +11,7 @@ import org.neo4j.procedure.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class FindPath {
+public class ROSFindPath {
 
     @Context
     public GraphDatabaseService db;
@@ -79,18 +79,20 @@ public class FindPath {
                 this.pubTarget = startEdge;
                 this.endEdge = endEdge;
             }
+
+            this.cfgCheck = cfgCheck;
         }
 
         @Override
         public List<Path> call() throws Exception {
-            terminationGuard.check();
+            //terminationGuard.check();
             return rosAllShortestMulti(this.startNode, this.endNode, this.startEdge, this.endEdge,
                     this.pubVar, this.pubTarget, this.category, this.cfgCheck);
         }
     }
 
     @UserFunction
-    @Description("apoc.dataflow.rosDataflows")
+    @Description("apoc.dataflow.rosDataflow")
     public List<Path> rosDataflow(@Name("startEdges") List<Relationship> startEdges,
                                           @Name("endEdges") List<Relationship> endEdges,
                                           @Name("cfgCheck") boolean cfgCheck,
@@ -104,6 +106,7 @@ public class FindPath {
         int threads = (int) numThreads;
         ExecutorService es = pool.getDefaultExecutorService();
         //CompletionService<List<Path>> executorCompletionService= new ExecutorCompletionService<>(es);
+        //ExecutorService es = Executors.newFixedThreadPool(threads);
         int numTask = 0;
 
         //int threads =  Runtime.getRuntime().availableProcessors();
@@ -113,8 +116,8 @@ public class FindPath {
 
                 /**final FutureTask<List<Path>> futureTask = new FutureTask<>(
                         new DataflowCallable(startEdge, endEdge, cfgCheck)
-                );**/
-                //findPaths.add(new DataflowCallable(startEdge, endEdge, cfgCheck));
+                );
+                findPaths.add(new DataflowCallable(startEdge, endEdge, cfgCheck));**/
 
                 Future<List<Path>> ftr = es.submit(
                         new DataflowCallable(startEdge, endEdge, cfgCheck)
@@ -130,7 +133,6 @@ public class FindPath {
 
         }
 
-        //List<Future<List<Path>>> list = pool.invokeAll(findPaths);
 
         for (Future<List<Path>> ftr : list) {
             try {
@@ -145,6 +147,16 @@ public class FindPath {
                 String k = e.getMessage();
             }
         }
+
+        es.shutdown();
+        try {
+            es.awaitTermination(10, TimeUnit.SECONDS);
+            es.shutdownNow();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+
 
 
 
@@ -423,7 +435,7 @@ public class FindPath {
                 builder = new PathImpl.Builder(edge.getCurRel().getStartNode());
             }
         } else {
-            builder = recursiveConstructPath(edge.getPrevEdge());
+            builder = recursiveConstructPath(edge.getPrevEdge(), pubTarget);
         }
         builder = builder.push(edge.getCurRel());
         return builder;
