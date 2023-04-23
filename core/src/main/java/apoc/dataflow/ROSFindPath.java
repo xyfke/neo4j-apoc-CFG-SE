@@ -104,9 +104,9 @@ public class ROSFindPath {
         List<Future<List<Path>>> list = new ArrayList<Future<List<Path>>>();
 
         int threads = (int) numThreads;
-        ExecutorService es = pool.getDefaultExecutorService();
+        //ExecutorService es = pool.getDefaultExecutorService();
         //CompletionService<List<Path>> executorCompletionService= new ExecutorCompletionService<>(es);
-        //ExecutorService es = Executors.newFixedThreadPool(threads);
+        ExecutorService es = Executors.newFixedThreadPool(threads);
         int numTask = 0;
 
         //int threads =  Runtime.getRuntime().availableProcessors();
@@ -249,12 +249,13 @@ public class ROSFindPath {
 
                 if (curRel.getEndNode().getId() == end.getId()) {
                     if (category == DataflowHelper.DataflowType.SUFFIX) {
-                        curEdge = new EdgeInfo(endEdge, curEdge);
-                        if ((!cfgCheck) || getCFGPath(curEdge)) {
-                            returnedPath.add(recursiveConstructPath(curEdge, pubTarget).build());
-                            foundPath = curEdge;
+                        EdgeInfo vifEdge = new EdgeInfo(endEdge, curEdge);
+                        if ((!cfgCheck) || getCFGPath(vifEdge)) {
+                            returnedPath.add(recursiveConstructPath(vifEdge, pubTarget).build());
+                            foundPath = vifEdge;
                             visitedRels.addAll(visitedRel);
                             retCovered.addAll(curEdge.getRetComp());
+                            continue;
                             //return List.of(constructPath(curEdge));
                         }
                     } else {
@@ -264,6 +265,7 @@ public class ROSFindPath {
                         foundPath = curEdge;
                         visitedRels.addAll(visitedRel);
                         retCovered.addAll(curEdge.getRetComp());
+                        continue;
                         //return List.of(constructPath(curEdge));
                     }
                 }
@@ -397,9 +399,13 @@ public class ROSFindPath {
             }
 
             for (Node startCFG : prevCFG) {
-                Path cfgPath = shortestPath.findSinglePath(startCFG, endCFG.get(0));
-                if (cfgPath != null) {
-                    acceptedCFGNode.add(endCFG.get(0));
+                try {
+                    Path cfgPath = shortestPath.findSinglePath(startCFG, endCFG.get(0));
+                    if (cfgPath != null) {
+                        acceptedCFGNode.add(endCFG.get(0));
+                    }
+                } catch (Exception e) {
+                    continue;
                 }
             }
         }
