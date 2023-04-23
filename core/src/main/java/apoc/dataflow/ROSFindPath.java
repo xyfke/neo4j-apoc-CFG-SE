@@ -142,9 +142,11 @@ public class ROSFindPath {
                 }
             } catch (InterruptedException e) {
                 // If an InterruptedException or ExecutionException is thrown, print the exception message
-                String k = e.getMessage();
+                es.shutdown();
+                throw new RuntimeException("Interruption error executing in parallel: ", e);
             } catch (ExecutionException e) {
-                String k = e.getMessage();
+                es.shutdown();
+                throw new RuntimeException("Execution error executing in parallel: ", e);
             }
         }
 
@@ -154,6 +156,7 @@ public class ROSFindPath {
             es.shutdownNow();
         } catch (InterruptedException e) {
             e.printStackTrace();
+            throw new RuntimeException("Interruption error executing in parallel: ", e);
         }
 
 
