@@ -374,11 +374,13 @@ public class GmDataflowPath {
             CFGValidationHelper.addCFGToCandidatePath(curPath, firstCFGs, false);
         }
 
+
         // check for already found values
         if (start.equals(end)) {
             curPath = (category == DataflowType.SUFFIX) ? new CandidatePath(curPath, endEdge) :
                     curPath;
-            if ((!cfgCheck) || (gmGetCFGPath(curPath,
+            if ((!cfgCheck) || (startType.equals("varWriteIn") && (endType.equals("varWriteOut")))
+                    || (gmGetCFGPath(curPath,
                     (category != DataflowType.PREFIX),
                     (category != DataflowType.SUFFIX), endType))) {
                 PathImpl.Builder builder = (startEdge != null) ?

@@ -133,15 +133,15 @@ public class CFGValidationHelper {
         HashMap<List<Node>, Relationship> cfgNodes = new HashMap<>();
         Iterable<Relationship> targetCFGs = null;
 
-        if (type.equals("varWriteOut")) {
+        if (type.equals("varWriteOut") || type.equals("varWriteIn")) {
             targetCFGs = (start) ?
                     node.getRelationships(Direction.OUTGOING, RelTypes.vwDestination) :
                     node.getRelationships(Direction.OUTGOING, RelTypes.vwSource);
-        } else if (type.equals("parWriteOut")) {
+        } else if (type.equals("parWriteOut") || type.equals("parWriteIn")) {
             targetCFGs = (start) ?
                     node.getRelationships(Direction.OUTGOING, RelTypes.pwDestination) :
                     node.getRelationships(Direction.OUTGOING, RelTypes.pwSource);
-        } else if (type.equals("retWriteOut")) {
+        } else if (type.equals("retWriteOut") || type.equals("retWriteIn")) {
             targetCFGs = (start) ?
                     node.getRelationships(Direction.OUTGOING, RelTypes.rwDestination) :
                     node.getRelationships(Direction.OUTGOING, RelTypes.rwSource);
