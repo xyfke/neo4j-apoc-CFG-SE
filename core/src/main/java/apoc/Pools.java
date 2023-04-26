@@ -60,7 +60,8 @@ public class Pools extends LifecycleAdapter {
     public void init() {
 
         threads = Math.max(1, apocConfig.getInt(ApocConfig.APOC_CONFIG_JOBS_POOL_NUM_THREADS, DEFAULT_POOL_THREADS));
-        threads = DEFAULT_POOL_THREADS;
+        //threads = DEFAULT_POOL_THREADS;
+        threads = 4;
         queueSize = Math.max(1, apocConfig.getInt(ApocConfig.APOC_CONFIG_JOBS_QUEUE_SIZE, threads * 5));
 
         // ensure we use daemon threads everywhere

@@ -379,7 +379,9 @@ public class GmDataflowPath {
         if (start.equals(end)) {
             curPath = (category == DataflowType.SUFFIX) ? new CandidatePath(curPath, endEdge) :
                     curPath;
-            if ((!cfgCheck) || (startType.equals("varWriteIn") && (endType.equals("varWriteOut")))
+            boolean varWriteDataflow = (startType != null) && (endType != null)
+                    && (startType.equals("varWriteIn") && (endType.equals("varWriteOut")));
+            if ((!cfgCheck) || varWriteDataflow
                     || (gmGetCFGPath(curPath,
                     (category != DataflowType.PREFIX),
                     (category != DataflowType.SUFFIX), endType))) {

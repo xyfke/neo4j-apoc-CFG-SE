@@ -101,7 +101,7 @@ public class ROSFindPath {
 
         ArrayList<Path> returnedPath = new ArrayList<>();
         List<Callable<List<Path>>> findPaths = new ArrayList<>();
-        List<Future<List<Path>>> list = new ArrayList<Future<List<Path>>>();
+        Queue<Future<List<Path>>> list = new LinkedList<>();
 
         int threads = (int) numThreads;
         //ExecutorService es = pool.getDefaultExecutorService();
@@ -134,7 +134,8 @@ public class ROSFindPath {
         }
 
 
-        for (Future<List<Path>> ftr : list) {
+        while (!list.isEmpty()) {
+            Future<List<Path>> ftr = list.remove();
             try {
                 final List<Path> result = ftr.get();
                 if ((result != null) && (!result.isEmpty())) {
@@ -148,6 +149,9 @@ public class ROSFindPath {
                 es.shutdown();
                 throw new RuntimeException("Execution error executing in parallel: ", e);
             }
+
+            ftr = null;
+            Runtime.getRuntime().gc();
         }
 
         es.shutdown();
@@ -285,7 +289,8 @@ public class ROSFindPath {
 
     @UserFunction
     @Description("apoc.dataflow.rosAllShortest()")
-    public List<Path> rosAllShortest(@Name("startNode") Node startNode, @Name("endNode") Node endNode,
+    public List<Path> rosAllShortest(@Name("startNode") Node startNode,
+                                     @Name("endNode") Node endNode,
                                      @Name("startEdge") Relationship startEdge,
                                      @Name("endEdge") Relationship endEdge,
                                      @Name("cfgCheck") boolean cfgCheck) {
