@@ -22,9 +22,6 @@ public class ROSFindPath {
     @Context
     public Pools pool;
 
-    @Context
-    public TerminationGuard terminationGuard;
-
 
     private DataflowHelper.DataflowType getCategory(Node startNode, Node endNode, Relationship startEdge,
                                                     Relationship endEdge) {
@@ -189,12 +186,12 @@ public class ROSFindPath {
                                      @Name("cfgCheck") boolean cfgCheck) {
 
         // path finding data structures
-        HashSet<Relationship> visitedRels = new HashSet<>();
-        HashSet<Relationship> visitedRel = new HashSet<>();
+        HashSet<Long> visitedRels = new HashSet<>();
+        HashSet<Long> visitedRel = new HashSet<>();
         Queue<EdgeInfo> queueEdge = new LinkedList<>();
         ArrayList<Path> returnedPath = new ArrayList<>();
         EdgeInfo foundPath = null;
-        ArrayList<ArrayList<Relationship>> retCovered = new ArrayList<>();
+        ArrayList<ArrayList<Long>> retCovered = new ArrayList<>();
         int pathLen = -1;
 
         // path finding variables
@@ -222,11 +219,11 @@ public class ROSFindPath {
         if (category != DataflowHelper.DataflowType.PREFIX) {
             Iterable<Relationship> nextRels = DataflowHelper.getNextRels(startNode);
             for (Relationship nextRel : nextRels) {
-                visitedRels.add(nextRel);
+                visitedRels.add(nextRel.getId());
                 queueEdge.add(new EdgeInfo(nextRel, null));
             }
         } else {
-            visitedRels.add(startEdge);
+            visitedRels.add(startEdge.getId());
             queueEdge.add(new EdgeInfo(startEdge, null));
         }
 
@@ -249,7 +246,7 @@ public class ROSFindPath {
             // validate or get the corresponding CFG
             if ((!cfgCheck) || getCFGPath(curEdge)) {
 
-                visitedRel.add(curRel);
+                visitedRel.add(curRel.getId());
 
                 if (curRel.getEndNode().getId() == end.getId()) {
                     if (category == DataflowHelper.DataflowType.SUFFIX) {
@@ -296,12 +293,12 @@ public class ROSFindPath {
                                      @Name("cfgCheck") boolean cfgCheck) {
 
         // path finding data structures
-        HashSet<Relationship> visitedRels = new HashSet<>();
-        HashSet<Relationship> visitedRel = new HashSet<>();
+        HashSet<Long> visitedRels = new HashSet<>();
+        HashSet<Long> visitedRel = new HashSet<>();
         Queue<EdgeInfo> queueEdge = new LinkedList<>();
         ArrayList<Path> returnedPath = new ArrayList<>();
         EdgeInfo foundPath = null;
-        ArrayList<ArrayList<Relationship>> retCovered = new ArrayList<>();
+        ArrayList<ArrayList<Long>> retCovered = new ArrayList<>();
         int pathLen = -1;
 
         // path finding variables
@@ -324,11 +321,11 @@ public class ROSFindPath {
         if (category != DataflowHelper.DataflowType.PREFIX) {
             Iterable<Relationship> nextRels = DataflowHelper.getNextRels(startNode);
             for (Relationship nextRel : nextRels) {
-                visitedRels.add(nextRel);
+                visitedRels.add(nextRel.getId());
                 queueEdge.add(new EdgeInfo(nextRel, null));
             }
         } else {
-            visitedRels.add(startEdge);
+            visitedRels.add(startEdge.getId());
             queueEdge.add(new EdgeInfo(startEdge, null));
         }
 
@@ -351,7 +348,7 @@ public class ROSFindPath {
             // validate or get the corresponding CFG
             if ((!cfgCheck) || getCFGPath(curEdge)) {
 
-                visitedRels.add(curRel);
+                visitedRels.add(curRel.getId());
 
                 if (curRel.getEndNode().getId() == end.getId()) {
                     if (category == DataflowHelper.DataflowType.SUFFIX) {
