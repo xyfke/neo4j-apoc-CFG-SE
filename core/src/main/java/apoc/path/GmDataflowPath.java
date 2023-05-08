@@ -577,8 +577,8 @@ public class GmDataflowPath {
     public Path buildP2Path(ArrayList<Relationship> curPath) {
         PathImpl.Builder builder = new PathImpl.Builder(curPath.get(0).getStartNode());
 
-        while (!curPath.isEmpty()) {
-            builder = builder.push(curPath.remove(0));
+        for (Relationship rel : curPath) {
+            builder = builder.push(rel);
         }
 
         return builder.build();
