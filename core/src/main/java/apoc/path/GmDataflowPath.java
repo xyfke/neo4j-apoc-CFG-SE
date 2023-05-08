@@ -33,9 +33,7 @@ public class GmDataflowPath {
        Iterable<Relationship> nextRels = startNode.getRelationships(Direction.OUTGOING,
                RelTypes.compCall, RelTypes.compReturn);
        for (Relationship nextRel : nextRels) {
-           //ArrayList<Relationship> curSubPath = new ArrayList<Relationship>(List.of(nextRel));
            queue.add(new ArrayList<Relationship>(List.of(nextRel)));
-           //resultPath.add(buildP2Path(curSubPath));
        }
 
         while (!queue.isEmpty()) {
@@ -48,7 +46,7 @@ public class GmDataflowPath {
 
             Node curNode = curSubPath.get(curSubPath.size()-1).getEndNode();
 
-            nextRels = (flag) ? startNode.getRelationships(Direction.OUTGOING,
+            nextRels = (flag) ? curNode.getRelationships(Direction.OUTGOING,
                     (isCFG) ? RelTypes.dataflowOTF : RelTypes.dataflowNCFG) :
                     startNode.getRelationships(Direction.OUTGOING,
                     RelTypes.compCall, RelTypes.compReturn);
