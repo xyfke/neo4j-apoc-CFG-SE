@@ -22,6 +22,50 @@ public class GmDataflowPath {
     @Context
     public Transaction tx;
 
+    @UserFunction
+    @Description("apoc.path.phase2")
+    public List<Path> phase2(@Name("startNode") Node startNode, @Name("cfgCheck") boolean isCFG) {
+        ArrayList<Path> resultPath = new ArrayList<>();
+        Queue<ArrayList<Relationship>> queue = new LinkedList<>();
+        ArrayList<ArrayList<Relationship>> candidatePath = new ArrayList<>();
+        boolean flag;
+
+       Iterable<Relationship> nextRels = startNode.getRelationships(Direction.OUTGOING,
+               RelTypes.compCall, RelTypes.compReturn);
+       for (Relationship nextRel : nextRels) {
+           //ArrayList<Relationship> curSubPath = new ArrayList<Relationship>(List.of(nextRel));
+           queue.add(new ArrayList<Relationship>(List.of(nextRel)));
+           //resultPath.add(buildP2Path(curSubPath));
+       }
+
+        while (!queue.isEmpty()) {
+            ArrayList<Relationship> curSubPath = queue.poll();
+            flag = (curSubPath.size() % 2 == 1);
+
+            if (flag) {
+                resultPath.add(buildP2Path(curSubPath));
+            }
+
+            Node curNode = curSubPath.get(curSubPath.size()-1).getEndNode();
+
+            nextRels = (flag) ? startNode.getRelationships(Direction.OUTGOING,
+                    (isCFG) ? RelTypes.dataflowOTF : RelTypes.dataflowNCFG) :
+                    startNode.getRelationships(Direction.OUTGOING,
+                    RelTypes.compCall, RelTypes.compReturn);
+
+            for (Relationship nextRel : nextRels) {
+                if (!curSubPath.contains(nextRel)) {
+                    ArrayList<Relationship> newSubPath = new ArrayList<>(curSubPath);
+                    newSubPath.add(nextRel);
+                    queue.add(newSubPath);
+                }
+            }
+
+        }
+
+        return resultPath;
+
+    }
 
     // Need to change before running this function
     @UserFunction
@@ -529,6 +573,17 @@ public class GmDataflowPath {
         candidatePath.updateCFG(acceptedCFGEnd);
 
         return !acceptedCFGEnd.isEmpty();
+
+    }
+
+    public Path buildP2Path(ArrayList<Relationship> curPath) {
+        PathImpl.Builder builder = new PathImpl.Builder(curPath.get(0).getStartNode());
+
+        while (!curPath.isEmpty()) {
+            builder = builder.push(curPath.remove(0));
+        }
+
+        return builder.build();
 
     }
 

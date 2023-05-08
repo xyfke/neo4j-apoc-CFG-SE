@@ -28,7 +28,8 @@ public class CFGValidationHelper {
         retWrite, rwSource, rwDestination,
         varInfFunc, vifSource, vifDestination,
         varInfluence, viSource, viDestination,
-        nextCFGBlock, pubVar, pubTarget;
+        nextCFGBlock, pubVar, pubTarget,
+        compCall, compReturn, dataflowOTF, dataflowNCFG;
     }
 
     public enum NodeLabel implements Label {
