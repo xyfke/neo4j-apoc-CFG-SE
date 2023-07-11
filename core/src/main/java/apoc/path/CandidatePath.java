@@ -22,6 +22,7 @@ public class CandidatePath {
     public Node startNode;
     public Node endNode;
     public ArrayList<Relationship> retRel;
+    public int patternIndex;
 
     public CandidatePath() {
         this.partialResult = new ArrayList();
@@ -52,6 +53,44 @@ public class CandidatePath {
 
         if (startEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
             this.retRel.add(startEdge);
+        }
+    }
+
+    // constructor for a single edge
+    public CandidatePath(Relationship startEdge, int patternIndex) {
+        this.partialResult = new ArrayList(List.of(startEdge));
+        this.validCFGs = new HashSet<Node>();
+        this.pathSize = 1;
+        //this.callStacks = new ArrayList<>();
+        this.endNode = startEdge.getEndNode();
+        this.retRel = new ArrayList<>();
+        this.patternIndex = patternIndex;
+
+        if (startEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
+            this.retRel.add(startEdge);
+        }
+    }
+
+    // constructor to create new path from old path plus a single edge
+    public CandidatePath(CandidatePath oldPath, Relationship newEdge, int patternIndex) {
+        this.partialResult = new ArrayList(oldPath.partialResult);
+        this.partialResult.add(newEdge);
+        this.validCFGs = oldPath.validCFGs;
+        this.pathSize = oldPath.getPathSize() + 1;
+        this.endNode = newEdge.getEndNode();
+        this.retRel = new ArrayList<>(oldPath.retRel);
+        this.patternIndex = patternIndex;
+
+        // get all previous callStacks
+        /**this.callStacks = new ArrayList<>();
+         for (Stack<Relationship> callStack : oldPath.callStacks) {
+         Stack<Relationship> tempStack = new Stack<>();
+         tempStack.addAll(callStack);
+         this.callStacks.add(tempStack);
+         }**/
+
+        if (newEdge.getStartNode().hasLabel(CFGValidationHelper.NodeLabel.cReturn)) {
+            this.retRel.add(newEdge);
         }
     }
 
