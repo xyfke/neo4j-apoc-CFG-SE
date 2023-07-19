@@ -23,16 +23,16 @@ public class CFGValidationHelper {
     // define used relationship types
     public enum RelTypes implements RelationshipType
     {
-        varWrite, vwSource, vwDestination,
-        parWrite, pwSource, pwDestination,
-        retWrite, rwSource, rwDestination,
-        varInfFunc, vifSource, vifDestination,
-        varInfluence, viSource, viDestination,
-        call, cSource, cDestination,
-        write, wSource, wDestination,
+        varWrite, varWriteSource, varWriteDestination,
+        parWrite, parWriteSource, parWriteDestination,
+        retWrite, retWriteSource, retWriteDestination,
+        varInfFunc, varInfFuncSource, varInfFuncDestination,
+        varInfluence, varInfluenceSource, varInfluenceDestination,
+        call, callSource, callDestination,
+        write, writeSource, writeDestination,
         nextCFGBlock,
-        pubVar, pvSource, pvDestination,
-        pubTarget, ptSource, ptDestination,
+        pubVar, pubVarSource, pubVarDestination,
+        pubTarget, pubTargetSource, pubTargetDestination,
         compCall, compReturn, dataflowOTF, dataflowNCFG;
     }
 
@@ -131,49 +131,49 @@ public class CFGValidationHelper {
 
         if (r.isType(RelTypes.varWrite)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.vwSource);
+                    RelTypes.varWriteSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.vwDestination);
+                    RelTypes.varWriteDestination);
         } else if (r.isType(RelTypes.parWrite)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.pwSource);
+                    RelTypes.parWriteSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.pwDestination);
+                    RelTypes.parWriteDestination);
         } else if (r.isType(RelTypes.retWrite)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.rwSource);
+                    RelTypes.retWriteSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.rwDestination);
+                    RelTypes.retWriteDestination);
         } else if (r.isType(RelTypes.varInfFunc)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.vifSource);
+                    RelTypes.varInfFuncSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.vifDestination);
+                    RelTypes.varInfFuncDestination);
         } else if (r.isType(RelTypes.varInfluence)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.viSource);
+                    RelTypes.varInfluenceSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.viDestination);
+                    RelTypes.varInfluenceDestination);
         } else if (r.isType(RelTypes.call)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.cSource);
+                    RelTypes.callSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.cDestination);
+                    RelTypes.callDestination);
         } else if (r.isType(RelTypes.write)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.wSource);
+                    RelTypes.writeSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.wDestination);
+                    RelTypes.writeDestination);
         } else if (r.isType(RelTypes.pubVar)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.pvSource);
+                    RelTypes.pubVarSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.pvDestination);
+                    RelTypes.pubVarDestination);
         } else if (r.isType(RelTypes.pubTarget)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.ptSource);
+                    RelTypes.pubTargetSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.ptDestination);
+                    RelTypes.pubTargetDestination);
         }
 
         for (Relationship srcCFG : srcCFGs) {
@@ -237,16 +237,16 @@ public class CFGValidationHelper {
 
         if (type.equals("varWriteOut") || type.equals("varWriteIn")) {
             targetCFGs = (start) ?
-                    node.getRelationships(Direction.OUTGOING, RelTypes.vwDestination) :
-                    node.getRelationships(Direction.OUTGOING, RelTypes.vwSource);
+                    node.getRelationships(Direction.OUTGOING, RelTypes.varWriteDestination) :
+                    node.getRelationships(Direction.OUTGOING, RelTypes.varWriteSource);
         } else if (type.equals("parWriteOut") || type.equals("parWriteIn")) {
             targetCFGs = (start) ?
-                    node.getRelationships(Direction.OUTGOING, RelTypes.pwDestination) :
-                    node.getRelationships(Direction.OUTGOING, RelTypes.pwSource);
+                    node.getRelationships(Direction.OUTGOING, RelTypes.parWriteDestination) :
+                    node.getRelationships(Direction.OUTGOING, RelTypes.parWriteSource);
         } else if (type.equals("retWriteOut") || type.equals("retWriteIn")) {
             targetCFGs = (start) ?
-                    node.getRelationships(Direction.OUTGOING, RelTypes.rwDestination) :
-                    node.getRelationships(Direction.OUTGOING, RelTypes.rwSource);
+                    node.getRelationships(Direction.OUTGOING, RelTypes.retWriteDestination) :
+                    node.getRelationships(Direction.OUTGOING, RelTypes.retWriteSource);
         } else {
             return cfgNodes;
         }
@@ -267,8 +267,8 @@ public class CFGValidationHelper {
 
         HashMap<List<Node>, Relationship> cfgNodes = new HashMap<>();
         Iterable<Relationship> targetCFGs = (start) ?
-                pwNode.getRelationships(Direction.OUTGOING, RelTypes.pwDestination) :
-                pwNode.getRelationships(Direction.OUTGOING, RelTypes.pwSource);
+                pwNode.getRelationships(Direction.OUTGOING, RelTypes.parWriteDestination) :
+                pwNode.getRelationships(Direction.OUTGOING, RelTypes.parWriteSource);
 
         for (Relationship targetCFG : targetCFGs) {
             cfgNodes.put(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()), null);

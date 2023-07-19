@@ -233,7 +233,7 @@ public class CFGPath {
         for (Node startCFG : startCFGs) {
             for (List<Node> endCFG : endCFGs) {
                 Node dstNode = endCFG.get(0);
-                Path cfgPath = shortestPath.findSinglePath(startCFG, dstNode, curEdge);
+                Path cfgPath = shortestPath.findSinglePath(startCFG, dstNode, nextEdge);
                 if (cfgPath != null) {
                     acceptedCFGEnd.add(endCFG.get(1));
                 }

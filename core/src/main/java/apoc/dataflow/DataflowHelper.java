@@ -58,29 +58,29 @@ public class DataflowHelper {
         // get all potential source and destination nodes
         if (r.isType(CFGValidationHelper.RelTypes.varWrite)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    CFGValidationHelper.RelTypes.vwSource);
+                    CFGValidationHelper.RelTypes.varWriteSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    CFGValidationHelper.RelTypes.vwDestination);
+                    CFGValidationHelper.RelTypes.varWriteDestination);
         } else if (r.isType(CFGValidationHelper.RelTypes.parWrite)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    CFGValidationHelper.RelTypes.pwSource);
+                    CFGValidationHelper.RelTypes.parWriteSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    CFGValidationHelper.RelTypes.pwDestination);
+                    CFGValidationHelper.RelTypes.parWriteDestination);
         } else if (r.isType(CFGValidationHelper.RelTypes.retWrite)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    CFGValidationHelper.RelTypes.rwSource);
+                    CFGValidationHelper.RelTypes.retWriteSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    CFGValidationHelper.RelTypes.rwDestination);
+                    CFGValidationHelper.RelTypes.retWriteDestination);
         } else if (r.isType(CFGValidationHelper.RelTypes.varInfFunc)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    CFGValidationHelper.RelTypes.vifSource);
+                    CFGValidationHelper.RelTypes.varInfFuncSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    CFGValidationHelper.RelTypes.vifDestination);
+                    CFGValidationHelper.RelTypes.varInfFuncDestination);
         } else if (r.isType(CFGValidationHelper.RelTypes.varInfluence)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    CFGValidationHelper.RelTypes.viSource);
+                    CFGValidationHelper.RelTypes.varInfluenceSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    CFGValidationHelper.RelTypes.viDestination);
+                    CFGValidationHelper.RelTypes.varInfluenceDestination);
         }
 
         for (Relationship srcCFG : srcCFGs) {

@@ -169,7 +169,7 @@ public class CFGTraversalShortestPath {
 
         }
 
-        private boolean validateCFG(Node cfgNode) {
+        /**private boolean validateCFG(Node cfgNode) {
 
             if (!this.lastEdgeStart.hasLabel(CFGValidationHelper.NodeLabel.cVariable)) {
                 return true;
@@ -189,7 +189,7 @@ public class CFGTraversalShortestPath {
 
             return true;
 
-        }
+        }**/
 
         private boolean updateCallStack(Relationship edge) {
 
