@@ -445,7 +445,7 @@ public class DataflowPath {
         for (Node srcNode : startCFGs) {
             for (List<Node> endCFG : endCFGs.keySet()) {
                 Node dstNode = endCFG.get(0);
-                Path cfgPath = shortestPath.findSinglePath(srcNode, dstNode, curRel);
+                Path cfgPath = shortestPath.findSinglePath(srcNode, dstNode, nextRel);
                 if (cfgPath != null) {
                     acceptedCFGEnd.add(endCFG.get(1));
                 }
