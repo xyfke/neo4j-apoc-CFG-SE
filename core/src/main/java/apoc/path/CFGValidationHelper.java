@@ -106,7 +106,7 @@ public class CFGValidationHelper {
             HashSet<List<Node>> tempSets = new HashSet<>();
             for (List<Node> relatedNode : relatedNodes) {
                 for (Relationship dstEdge : dstEdges) {
-                    Path path = algo.findSinglePath(relatedNode.get(0), dstEdge.getEndNode());
+                    Path path = algo.findSinglePath(relatedNode.get(1), dstEdge.getEndNode());
                     if (path != null) {
                         tempSets.add(List.of(relatedNode.get(0), dstEdge.getEndNode()));
                     }

@@ -115,7 +115,7 @@ public class CFGPath {
         while (!queuePath.isEmpty()) {
             curPath = queuePath.remove();
 
-            if ((!allShortestPath) && (foundCandidatePath != null)) {
+            if ((allShortestPath) && (foundCandidatePath != null)) {
                 if ((!curPath.compareRetNodes(foundCandidatePath))) {
                     continue;
                 } else {
