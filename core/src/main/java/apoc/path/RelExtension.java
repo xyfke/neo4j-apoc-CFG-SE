@@ -33,13 +33,19 @@ public class RelExtension {
     public ArrayList<RelationSequence> relSequence = new ArrayList<>();
     public int lastIndex;
     public boolean loopBack;
+    public int termIndexStart = -1;
+    public int termIndexEnd = -1;
 
     public RelExtension(String pattern, boolean loopBack) {
 
         String[] sequenceList = pattern.split(",");
         this.loopBack = loopBack;
 
+        // write, varWrite|parWrite|retWrite*
+
+
         for (String sequence : sequenceList) {
+
             // handle one or more
             if (sequence.endsWith("+")) {
                 String stripMultiple = sequence.substring(0, sequence.length()-1);
@@ -55,6 +61,21 @@ public class RelExtension {
         }
 
         this.lastIndex = relSequence.size()-1;
+
+        this.termIndexEnd = this.lastIndex;
+        this.termIndexStart = this.lastIndex;
+        while (this.termIndexStart >= 0) {
+            if (relSequence.get(this.termIndexStart).repeat) {
+                this.termIndexStart -= 1;
+            } else {
+                break;
+            }
+        }
+
+        if (this.termIndexStart < 0) {
+            this.termIndexEnd = -1;
+            this.termIndexStart = -1;
+        }
 
     }
 
@@ -82,6 +103,10 @@ public class RelExtension {
             nextRelationshipType.add(relSeq.relationType);
         }
         return nextRelationshipType;
+    }
+
+    public boolean isEndIndex(int curIndex) {
+        return (curIndex >= termIndexStart) || (curIndex <= termIndexEnd);
     }
 
     public int getCurIndex(RelationshipType lastType, int curIndex) {

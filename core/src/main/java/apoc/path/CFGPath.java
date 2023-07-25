@@ -88,19 +88,25 @@ public class CFGPath {
         }
 
 
-
+        // We only have the starting node
         if (startEdge == null) {
+
+            // use relationship sequence 0
             curType = extension.constructTypes(0);
             int y = 0;
 
+            // For each possible sequences, find next possible candidates
             for (ArrayList<RelationshipType> curT : curType) {
                 nextRels = start.getRelationships(Direction.OUTGOING,
                         curT.toArray(RelationshipType[]::new));
                 for (Relationship nextRel : nextRels) {
-                    curPath = new BasicCandidatePath(nextRel, y);
-                    if (cfgCheck) {updateFirstCFGNodes(curPath, cfgConfig);}
-                    queuePath.add(curPath);
-                    if (allShortestPath) {visitedEdges.add(nextRel);}
+                    // only create path if we are looking for all path or it is not in visited edges
+                    if ((!allShortestPath) || (!visitedEdges.contains(nextRel))) {
+                        curPath = new BasicCandidatePath(nextRel, y);
+                        if (cfgCheck) {updateFirstCFGNodes(curPath, cfgConfig);}
+                        queuePath.add(curPath);
+                    }
+
                 }
                 y += 1;
             }
@@ -128,7 +134,7 @@ public class CFGPath {
             if ((!cfgCheck) || getCFGPath(curPath, cfgConfig)) {
                 if (allShortestPath) {visitedEdges.add(curPath.getLastEdge()); }
 
-                if (((curPath.getPathIndex() == extension.lastIndex) || (curPath.getPathIndex() == -1)) &&
+                if ((extension.isEndIndex(curPath.getPathIndex())) &&
                         ((end == null) || (curPath.getLastEdge().getEndNode().equals(end)))) {
                     if (endEdge != null) {
                         BasicCandidatePath tempPath = new BasicCandidatePath(curPath, endEdge, curPath.pathIndex);
@@ -158,8 +164,9 @@ public class CFGPath {
                         nextRels = curPath.getLastEdge().getEndNode().getRelationships(Direction.OUTGOING,
                                 curT.toArray(RelationshipType[]::new));
                         for (Relationship nextRel : nextRels) {
-                            boolean addPath = (!visitedEdges.contains(nextRel)) &&
-                                    (!curPath.getPath().contains(nextRel));
+                            boolean addPath = ((!allShortestPath) && (!curPath.getPath().contains(nextRel))) ||
+                                    (!visitedEdges.contains(nextRel));
+
                             if (addPath) {
                                 BasicCandidatePath newCandidatePath = new BasicCandidatePath(curPath, nextRel,
                                         index+i);
@@ -217,7 +224,7 @@ public class CFGPath {
             return true;
         }
 
-        Relationship curEdge = path.getSecondLastEdge();
+        //Relationship curEdge = path.getSecondLastEdge();
         Relationship nextEdge = path.getLastEdge();
 
         HashSet<Node> startCFGs = path.getValidCFGs();
