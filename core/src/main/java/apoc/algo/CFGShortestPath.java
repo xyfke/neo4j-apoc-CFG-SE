@@ -173,7 +173,8 @@ public class CFGShortestPath {
     public Path findSinglePath( Node start, Node end, Relationship dataflowRel)
     {
         Node srcNode = dataflowRel.getStartNode();
-        boolean filterVar = (srcNode.hasLabel(NodeLabel.cVariable)) || (srcNode.hasLabel(NodeLabel.cReturn));
+        boolean filterVar = (srcNode.hasLabel(NodeLabel.cVariable)) || (srcNode.hasLabel(NodeLabel.cReturn))
+                && (!dataflowRel.isType(RelTypes.pubVar));
         Iterator<Path> paths = internalPaths( start, end, true, srcNode,
                 filterVar).iterator();
         Path path = paths.hasNext() ? paths.next() : null;
