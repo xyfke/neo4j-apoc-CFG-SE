@@ -26,14 +26,7 @@ import org.neo4j.graphalgo.EvaluationContext;
 import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphalgo.impl.util.PathImpl;
 import org.neo4j.graphalgo.impl.util.PathImpl.Builder;
-import org.neo4j.graphdb.Direction;
-import org.neo4j.graphdb.Entity;
-import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Path;
-import org.neo4j.graphdb.PathExpander;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.ResourceIterator;
+import org.neo4j.graphdb.*;
 import org.neo4j.graphdb.traversal.BranchState;
 import org.neo4j.graphdb.traversal.TraversalMetadata;
 import org.neo4j.internal.helpers.collection.IterableWrapper;
@@ -173,8 +166,8 @@ public class CFGShortestPath {
     public Path findSinglePath( Node start, Node end, Relationship dataflowRel)
     {
         Node srcNode = dataflowRel.getStartNode();
-        boolean filterVar = (srcNode.hasLabel(NodeLabel.cVariable)) || (srcNode.hasLabel(NodeLabel.cReturn))
-                && (!dataflowRel.isType(RelTypes.pubVar));
+        boolean filterVar = (srcNode.hasLabel(NodeLabel.cVariable)) || (srcNode.hasLabel(NodeLabel.cReturn));
+        filterVar = (!dataflowRel.isType(RelTypes.pubVar)) && filterVar;
         Iterator<Path> paths = internalPaths( start, end, true, srcNode,
                 filterVar).iterator();
         Path path = paths.hasNext() ? paths.next() : null;
@@ -537,7 +530,9 @@ public class CFGShortestPath {
                 Iterable<Relationship> cfgConnections = cfgNode.getRelationships(Direction.INCOMING);
                 for (Relationship cfgConnection : cfgConnections) {
                     // compare with next relationship - start node
-                    if (cfgConnection.getType().toString().endsWith("Destination") &&
+                    String cfgType = cfgConnection.getType().toString();
+                    if (cfgType.endsWith("Destination") && !cfgType.equals("vifDestination") &&
+                            !cfgType.equals("viDestination") &&
                             cfgConnection.getStartNode().equals(this.srcNode)) {
                         return false;
                     }
