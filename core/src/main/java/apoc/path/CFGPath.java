@@ -131,9 +131,11 @@ public class CFGPath {
                 }
             }
 
+            // Make sure it passes the CFG test before proceeding to look further
             if ((!cfgCheck) || getCFGPath(curPath, cfgConfig)) {
                 if (allShortestPath) {visitedEdges.add(curPath.getLastEdge()); }
 
+                // Only record to valid path if it is consider end index
                 if ((extension.isEndIndex(curPath.getPathIndex())) &&
                         ((end == null) || (curPath.getLastEdge().getEndNode().equals(end)))) {
                     if (endEdge != null) {

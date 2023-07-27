@@ -63,7 +63,7 @@ public class CFGValidationHelper {
         // get settings input by user
         String configKey = startNodeLabel + edgeTypeStr + endNodeLabel;
         CFGPath.CFGSetting config = cfgConfig.get(configKey);
-        int length = (config != null) ? config.getLength() : 1;
+        int length = (config != null) ? config.getLength() : 0;
         String[] attribute = (config != null) ? config.getAttribute() : null;
 
         // get the CFG nodes in iterable
@@ -113,7 +113,19 @@ public class CFGValidationHelper {
                 }
             }
             relatedNodes = tempSets;
+        } else {
+            HashSet<List<Node>> tempSets = new HashSet<>();
+            for (List<Node> relatedNode : relatedNodes) {
+                for (Relationship dstEdge : dstEdges) {
+                    if (dstEdge.getEndNode().equals(relatedNode.get(1))) {
+                        tempSets.add(List.of(relatedNode.get(0), dstEdge.getEndNode()));
+                    }
+                }
+            }
+            relatedNodes = tempSets;
         }
+
+
 
         return relatedNodes;
 
