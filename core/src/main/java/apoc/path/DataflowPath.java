@@ -291,7 +291,13 @@ public class DataflowPath {
 
         List<CandidatePath> returnCandidates = new ArrayList<CandidatePath>();
 
-        if ((startNode != null) && (endNode != null)) {         // dataflow in middle components
+        if ((startEdge != null) && (endEdge != null)) {
+            start = startEdge.getEndNode();
+            end = endEdge.getEndNode();
+            curPath = new CandidatePath(startEdge);
+            queuePath.add(curPath);
+            category = DataflowType.ALL;
+        }else if ((startNode != null) && (endNode != null)) {         // dataflow in middle components
             start = startNode;
             end = endNode;
             category = DataflowType.INTRA;
@@ -376,7 +382,7 @@ public class DataflowPath {
                 // check if we reach end node
                 if (curPath.getEndNode().equals(end)) {
 
-                    if (category == DataflowType.SUFFIX) {
+                    if ((category == DataflowType.SUFFIX) || (category == DataflowType.ALL)) {
                         CandidatePath vifPath = new CandidatePath(curPath, endEdge);
                         if ((!cfgCheck) || (getCFGPath(vifPath))) {
                             // build path, and return (exit)

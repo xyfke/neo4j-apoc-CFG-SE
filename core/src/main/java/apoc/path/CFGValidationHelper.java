@@ -41,7 +41,7 @@ public class CFGValidationHelper {
     }
 
     public static enum DataflowType {
-        PREFIX, SUFFIX, INTRA;
+        PREFIX, SUFFIX, INTRA, ALL;
     }
 
     // helper function: return start and end CFG nodes along with the connections
