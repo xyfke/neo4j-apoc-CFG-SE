@@ -293,7 +293,7 @@ public class DataflowPath {
 
         if ((startEdge != null) && (endEdge != null)) {
             start = startEdge.getEndNode();
-            end = endEdge.getEndNode();
+            end = endEdge.getStartNode();
             curPath = new CandidatePath(startEdge);
             queuePath.add(curPath);
             category = DataflowType.ALL;
@@ -327,7 +327,7 @@ public class DataflowPath {
         }
 
         // if it is not prefix, because we already have a starting edge for prefix, no need to look for the first
-        if (category != DataflowType.PREFIX) {
+        if ((category != DataflowType.PREFIX) && (category != DataflowType.ALL)) {
             dataflowRels = CFGValidationHelper.getNextRels(startNode, false);
 
             // add the relationships connected to start node
