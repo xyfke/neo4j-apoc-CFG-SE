@@ -101,7 +101,7 @@ public class RelExtension {
     }
 
     public boolean isEndIndex(int curIndex) {
-        return (curIndex >= termIndexStart) || (curIndex <= termIndexEnd);
+        return (curIndex >= termIndexStart) && (curIndex <= termIndexEnd);
     }
 
     public int getCurIndex(RelationshipType lastType, int curIndex) {
