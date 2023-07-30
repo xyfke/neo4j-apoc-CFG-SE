@@ -200,8 +200,29 @@ public class CFGValidationHelper {
                 } else if (r.isType(RelTypes.parWrite) || r.isType(RelTypes.retWrite)
                         || r.isType(RelTypes.call)) {
 
-                    Iterable<Relationship> nextCFGRels = srcCFG.getEndNode().getRelationships(Direction.OUTGOING,
+                    Iterable<Relationship> nextCFGRelsIt = srcCFG.getEndNode().getRelationships(Direction.OUTGOING,
                             RelTypes.nextCFGBlock);
+
+                    // convert iterable to array
+                    ArrayList<Relationship> nextCFGRels = new ArrayList<>();
+                    for (Relationship nextCFGItem : nextCFGRelsIt) {
+                        nextCFGRels.add(nextCFGItem);
+                    }
+
+
+                    if (r.isType(RelTypes.parWrite) && r.getStartNode().hasLabel(NodeLabel.cReturn)) {
+                        ArrayList<Relationship> tempList = new ArrayList<>();
+                        for (Relationship nextRel : nextCFGRels) {
+                            if (nextRel.hasProperty("cfgReturn") && nextRel.getProperty("cfgReturn").equals("1")) {
+                                nextCFGRelsIt = nextRel.getEndNode().getRelationships(Direction.OUTGOING,
+                                        RelTypes.nextCFGBlock);
+                                for (Relationship nextCFGItem : nextCFGRelsIt) {
+                                    tempList.add(nextCFGItem);
+                                }
+                            }
+                        }
+                        nextCFGRels = tempList;
+                    }
 
                     for (Relationship nextCFGRel : nextCFGRels) {
                         if (dstCFG.getEndNode().equals(nextCFGRel.getEndNode())) {
@@ -219,6 +240,8 @@ public class CFGValidationHelper {
 
                         }
                     }
+
+
 
                 }  else if (r.isType(RelTypes.varInfFunc) || r.isType(RelTypes.varInfluence)) {
                     PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
