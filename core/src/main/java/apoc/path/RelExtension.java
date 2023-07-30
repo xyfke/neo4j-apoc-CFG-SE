@@ -72,11 +72,6 @@ public class RelExtension {
             }
         }
 
-        if (this.termIndexStart < 0) {
-            this.termIndexEnd = -1;
-            this.termIndexStart = -1;
-        }
-
     }
 
     // construct next possible sequences based on provided index
