@@ -318,13 +318,13 @@ public class DataflowPath {
         Iterable<Relationship> dataflowRels;
         HashMap<List<Node>, Relationship> startCFGs;
 
-        if (start.equals(end)) {
+        /**if (start.equals(end)) {
             PathImpl.Builder builder = (startNode != null) ? new PathImpl.Builder(startNode):
                     new PathImpl.Builder(startEdge.getStartNode());
             builder = (startEdge != null) ? builder.push(startEdge) : builder;
             builder = (endEdge != null) ? builder.push(endEdge) : builder;
             return List.of(builder.build());
-        }
+        }**/
 
         // if it is not prefix, because we already have a starting edge for prefix, no need to look for the first
         if ((category != DataflowType.PREFIX) && (category != DataflowType.ALL)) {
