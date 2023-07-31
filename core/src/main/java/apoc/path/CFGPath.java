@@ -52,15 +52,17 @@ public class CFGPath {
                 (List<Map<String,Object>>) config.getOrDefault("cfgConfiguration", null);
         HashMap<String, CFGSetting> cfgConfig = parseCFGConfiguration(cfgConfigurationList);
         RelExtension extension = new RelExtension(relSequence, repeat);
+        HashSet<Label> acceptedNodes = filterNodes((String) config.getOrDefault("nodeFilter", null));
 
-        return findPath(startNode, endNode, startEdge, endEdge, cfgConfig, extension, allShortestPath, cfgCheck);
+        return findPath(startNode, endNode, startEdge, endEdge, cfgConfig, extension, allShortestPath, cfgCheck,
+                acceptedNodes);
 
     }
 
     // helper function: find path
     public List<Path> findPath(Node startNode, Node endNode, Relationship startEdge, Relationship endEdge,
                                HashMap<String, CFGSetting> cfgConfig, RelExtension extension,
-                               boolean allShortestPath, boolean cfgCheck) {
+                               boolean allShortestPath, boolean cfgCheck, HashSet<Label> acceptedNodes) {
 
         List<BasicCandidatePath> returnPaths = new ArrayList<>();
         HashSet<Relationship> visitedEdges = new HashSet<>();
@@ -100,6 +102,11 @@ public class CFGPath {
                 nextRels = start.getRelationships(Direction.OUTGOING,
                         curT.toArray(RelationshipType[]::new));
                 for (Relationship nextRel : nextRels) {
+                    if ((acceptedNodes != null) &&
+                            (!acceptedNodes.contains(nextRel.getEndNode().getLabels().iterator().next()))) {
+                        continue;
+                    }
+
                     // only create path if we are looking for all path or it is not in visited edges
                     if ((!allShortestPath) || (!visitedEdges.contains(nextRel))) {
                         curPath = new BasicCandidatePath(nextRel, y);
@@ -166,6 +173,11 @@ public class CFGPath {
                         nextRels = curPath.getLastEdge().getEndNode().getRelationships(Direction.OUTGOING,
                                 curT.toArray(RelationshipType[]::new));
                         for (Relationship nextRel : nextRels) {
+                            if ((acceptedNodes != null) &&
+                                    (!acceptedNodes.contains(nextRel.getEndNode().getLabels().iterator().next()))) {
+                                continue;
+                            }
+
                             boolean addPath = ((!allShortestPath) && (!curPath.getPath().contains(nextRel))) ||
                                     (!visitedEdges.contains(nextRel));
 
@@ -252,6 +264,22 @@ public class CFGPath {
         path.setValidCFGs(acceptedCFGEnd);
         return !acceptedCFGEnd.isEmpty();
 
+    }
+
+    // helper function
+    public HashSet<Label> filterNodes(String acceptNodesStr) {
+        if (acceptNodesStr == null) {
+            return null;
+        }
+
+        HashSet<Label> acceptedNodes = new HashSet<>();
+
+        for (String acceptedNodeStr : acceptNodesStr.split(",")) {
+            Label acceptedNode = Label.label(acceptedNodeStr);
+            acceptedNodes.add(acceptedNode);
+        }
+
+        return acceptedNodes;
     }
 
     // helper class: CFG setting private class
