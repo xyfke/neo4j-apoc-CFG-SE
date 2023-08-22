@@ -175,8 +175,9 @@ public class ROSPath {
                                 continue;
                             }
 
-                            boolean addPath = ((!allShortestPath) && (!curPath.getPath().contains(nextRel))) ||
-                                    (!visitedEdges.contains(nextRel));
+                            boolean addPath = ((allShortestPath) && (!visitedEdges.contains(nextRel))) ||
+                                    (!curPath.getPath().contains(nextRel));
+
 
                             if (addPath) {
                                 BasicCandidatePath newCandidatePath = new BasicCandidatePath(curPath, nextRel,
