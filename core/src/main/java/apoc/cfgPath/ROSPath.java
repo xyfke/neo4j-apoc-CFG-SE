@@ -125,9 +125,9 @@ public class ROSPath {
 
         while (!queuePath.isEmpty()) {
             curPath = queuePath.remove();
-            visitedEdges.addAll(visitedEdge);
-            if ((allShortestPath) && (foundCandidatePath != null)) {
 
+            if ((allShortestPath) && (foundCandidatePath != null)) {
+                visitedEdges.addAll(visitedEdge);
                 if ((!curPath.compareRetNodes(foundCandidatePath))) {
                     continue;
                 } else {
