@@ -121,13 +121,13 @@ public class ROSPath {
 
         BasicCandidatePath foundCandidatePath = null;
         ArrayList<ArrayList<Relationship>> retCovered = new ArrayList<>();
-        ArrayList<Relationship> visitedEdge = new ArrayList<>();
+        //ArrayList<Relationship> visitedEdge = new ArrayList<>();
 
         while (!queuePath.isEmpty()) {
             curPath = queuePath.remove();
 
             if ((allShortestPath) && (foundCandidatePath != null)) {
-                visitedEdges.addAll(visitedEdge);
+                //visitedEdges.addAll(visitedEdge);
                 if ((!curPath.compareRetNodes(foundCandidatePath))) {
                     continue;
                 } else {
@@ -139,7 +139,7 @@ public class ROSPath {
 
             // Make sure it passes the CFG test before proceeding to look further
             if ((!cfgCheck) || getCFGPath(curPath, cfgConfig)) {
-                if (allShortestPath) {visitedEdge.add(curPath.getLastEdge()); }
+                if (allShortestPath) {visitedEdges.add(curPath.getLastEdge()); }
 
                 // Only record to valid path if it is consider end index
                 if ((extension.isEndIndex(curPath.getPathIndex())) &&
