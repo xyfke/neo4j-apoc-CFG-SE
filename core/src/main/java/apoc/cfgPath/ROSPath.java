@@ -178,7 +178,7 @@ public class ROSPath {
                             }
 
                             boolean addPath = ((allShortestPath) && (!visitedEdges.contains(nextRel))) ||
-                                    (!curPath.getPath().contains(nextRel));
+                                    ((!allShortestPath) && (!curPath.getPath().contains(nextRel)));
 
 
                             if (addPath) {
