@@ -10,10 +10,10 @@ This section covers analyses for software that uses the ROS communication framew
 All of the functions that will be discussed have the same parameters with the same purpose. As a result, we will define them in this section. 
 
 The parameters are: 
-* `startNode`: the starting node of the dataflow query
-* `endNode`: the ending node of the dataflow query
-* `startEdge`: the starting edge of the dataflow query (we know which two nodes the query starts with) 
-* `endEdge`: the ending edge of the dataflow query (we know which two nodes the query ends with)
+* `startNode`: the starting node of the query
+* `endNode`: the ending node of the query
+* `startEdge`: the starting edge of the query (if not null, will replace the value of startNode) 
+* `endEdge`: the ending edge of the query (if not null, will replace the value of startNode) 
 * `cfgCheck`: boolean flag for whether or not to perform CFG validation
 
 We vary the input combination of these function parameters (setting null and not null values) to determine which type of subquery we are working with. Currently we handle 3 types: prefix, suffix, and middle. The table below summarizes the combination of inputs. Any combination that is not in the table is consider invalid.
