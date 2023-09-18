@@ -4,52 +4,38 @@ import org.neo4j.graphdb.*;
 import java.util.ArrayList;
 
 public class RelExtension {
-    // internal class for keeping track of each relationship sequence
-    public class RelationSequence {
 
-        public String relationTypeStr;
-        public ArrayList<RelationshipType> relationType = new ArrayList<>();
-        public boolean repeat;
-
-        public RelationSequence(String relationTypeStr, boolean multiple) {
-            this.relationTypeStr = relationTypeStr;
-            this.repeat = multiple;
-
-            String[] orRelations = relationTypeStr.split("\\|");
-            for (String orRelation : orRelations) {
-                RelationshipType k = RelationshipType.withName(orRelation);
-                relationType.add(k);
-            }
-
-        }
-
-    }
-
+    // relationship sequence of accepted path
     public ArrayList<RelationSequence> relSequence = new ArrayList<>();
-    public int lastIndex;
-    public boolean loopBack;
+
+    public int lastIndex;          // last index of relationship sequence
+    public boolean loopBack;       // whether or not to repeat relationship sequence
+
+    // valid terminating index can be a range
+    // the following two attributes specifies the start and end of such range
     public int termIndexStart = -1;
     public int termIndexEnd = -1;
 
+    // constructor for extracting relationship pattern passed in
     public RelExtension(String pattern, boolean loopBack) {
 
         String[] sequenceList = pattern.split(",");
         this.loopBack = loopBack;
 
-        // write, varWrite|parWrite|retWrite*
-
+        // e.g. pattern = "varWrite|parWrite*,retWrite+,retWrite"
 
         for (String sequence : sequenceList) {
 
-            // handle one or more
+            // handle + in pattern, indicating one or more of such relationship type
             if (sequence.endsWith("+")) {
                 String stripMultiple = sequence.substring(0, sequence.length()-1);
                 this.relSequence.add(new RelationSequence(stripMultiple, false));
                 this.relSequence.add(new RelationSequence(stripMultiple, true));
-                // handle zero or more
+            // handle * in pattern, indicating zero or more of such relationship type
             } else if (sequence.endsWith("*")) {
                 String stripMultiple = sequence.substring(0, sequence.length()-1);
                 this.relSequence.add(new RelationSequence(stripMultiple, true));
+            // handle nothing, just one occurrence
             } else {
                 this.relSequence.add(new RelationSequence(sequence, false));
             }
@@ -57,6 +43,7 @@ public class RelExtension {
 
         this.lastIndex = relSequence.size()-1;
 
+        // find range of accepted end relationship types
         this.termIndexEnd = this.lastIndex;
         this.termIndexStart = this.lastIndex;
         while (this.termIndexStart >= 0) {
@@ -95,11 +82,12 @@ public class RelExtension {
         return nextRelationshipType;
     }
 
+    // check whether or not the curIndex is considered as valid ending index
     public boolean isEndIndex(int curIndex) {
         return (curIndex >= termIndexStart) && (curIndex <= termIndexEnd);
     }
 
-    public int getCurIndex(RelationshipType lastType, int curIndex) {
+    /**public int getCurIndex(RelationshipType lastType, int curIndex) {
         // in case we start with a relationship not in the pattern
         if (curIndex == -1) {
             return 0;
@@ -117,7 +105,7 @@ public class RelExtension {
 
         return curIndex;
 
-    }
+    }**/
 
     // determine next index, based on current index and type of edge
     public int nextIndex(RelationshipType lastType, int curIndex) {
@@ -150,7 +138,29 @@ public class RelExtension {
 
     }
 
-    public int getFirstType() {
+    /**public int getFirstType() {
         return (relSequence.isEmpty()) ? -1 : 0;
+    }**/
+
+    // internal class for keeping track of each relationship sequence
+    public class RelationSequence {
+
+        public String relationTypeStr;
+        public ArrayList<RelationshipType> relationType = new ArrayList<>();
+        public boolean repeat;
+
+        // constructor: for recording type of relationship and whether or not it repeats
+        public RelationSequence(String relationTypeStr, boolean multiple) {
+            this.relationTypeStr = relationTypeStr;
+            this.repeat = multiple;
+
+            String[] orRelations = relationTypeStr.split("\\|");
+            for (String orRelation : orRelations) {
+                RelationshipType k = RelationshipType.withName(orRelation);
+                relationType.add(k);
+            }
+
+        }
+
     }
 }

@@ -31,7 +31,7 @@ public class ROSPath {
         Node endNode = (Node) config.getOrDefault("endNode", null);
         Relationship endEdge = (Relationship) config.getOrDefault("endEdge", null);
 
-        // process starting points
+        // process starting points - has to be either a starting node or edge
         if (start == null) {
             return null;
         } else if (start instanceof Node) {
@@ -42,7 +42,15 @@ public class ROSPath {
             return null;
         }
 
-        // other settings configuration
+        // read other settings configuration
+        // Accepted parameters:
+        //    - cfgCheck: whether or not to perform cfg check (default: true)
+        //    - relSequence: relationship pattern in return path (default: null)
+        //    - repeat: whether or not above relSequence repeats (default: false)
+        //    - allShortestPath: whether or not we return shortest path or all paths (default: false)
+        //    - acceptedNodes: accepted nodes in our shortest path (default: null)
+        //    - cfgConfiguration: describes how the source and destination CFG blocks relate to each other
+        //          for a particular type of relation
         boolean cfgCheck = Util.toBoolean(config.getOrDefault("cfgCheck", true));
         String relSequence = (String) config.getOrDefault("relSequence", null);
         boolean repeat = Util.toBoolean(config.getOrDefault("repeat", false));
@@ -62,6 +70,7 @@ public class ROSPath {
                                HashMap<String, CFGSetting> cfgConfig, RelExtension extension,
                                boolean allShortestPath, boolean cfgCheck, HashSet<Label> acceptedNodes) {
 
+        // variables
         List<BasicCandidatePath> returnPaths = new ArrayList<>();
         HashSet<Relationship> visitedEdges = new HashSet<>();
         Queue<BasicCandidatePath> queuePath = new LinkedList<>();
@@ -71,24 +80,27 @@ public class ROSPath {
         Iterable<Relationship> nextRels;
         BasicCandidatePath curPath;
 
+        // Start edge not null, reassign start node with its ending node
         if (startEdge != null) {
             start = startEdge.getEndNode();
             curPath = new BasicCandidatePath(startEdge, -1);
-            if (cfgCheck) {updateFirstCFGNodes(curPath, cfgConfig);}
+            if (cfgCheck) {updateFirstCFGNodes(curPath, cfgConfig);} // update CFG related nodes
             queuePath.add(curPath);
-            if (allShortestPath) {visitedEdges.add(startEdge);}
+            if (allShortestPath) {visitedEdges.add(startEdge);} // update visited nodes
         }
 
+        // End edge not null, reassign end node with its starting node
         if (endEdge != null) {
             end = endEdge.getStartNode();
         }
 
+        // if we don't have a start node, then return none
         if (start == null) {
             return null;
         }
 
 
-        // We only have the starting node
+        // If we don't have start edge, then attempt to get first edge in candidate path
         if (startEdge == null) {
 
             // use relationship sequence 0
@@ -123,9 +135,12 @@ public class ROSPath {
         ArrayList<ArrayList<Relationship>> retCovered = new ArrayList<>();
         //ArrayList<Relationship> visitedEdge = new ArrayList<>();
 
+        // process each candidate path and verify that it is valid before proceeding the search
         while (!queuePath.isEmpty()) {
             curPath = queuePath.remove();
 
+            // If we already found something, check if we want to proceed by checking return edge
+            // combinations
             if ((allShortestPath) && (foundCandidatePath != null)) {
                 //visitedEdges.addAll(visitedEdge);
                 if ((!curPath.compareRetNodes(foundCandidatePath))) {
@@ -139,11 +154,16 @@ public class ROSPath {
 
             // Make sure it passes the CFG test before proceeding to look further
             if ((!cfgCheck) || getCFGPath(curPath, cfgConfig)) {
+
+                // Only add to visitedEdges if we are looking for shortest path
                 if (allShortestPath) {visitedEdges.add(curPath.getLastEdge()); }
 
-                // Only record to valid path if it is consider end index
+                // Add to return path only if the following conditions are met:
+                //      - Matches last edge type of relationship
+                //      - If has end node/end edge, also needs to match that
                 if ((extension.isEndIndex(curPath.getPathIndex())) &&
                         ((end == null) || (curPath.getLastEdge().getEndNode().equals(end)))) {
+                    // need to also pass CFG test if there is an end edge
                     if (endEdge != null) {
                         BasicCandidatePath tempPath = new BasicCandidatePath(curPath, endEdge, curPath.pathIndex);
                         if ((!cfgCheck) || getCFGPath(tempPath, cfgConfig)) {
@@ -154,6 +174,7 @@ public class ROSPath {
                                 continue;
                             }
                         }
+                    // otherwise we can just add to return path list
                     } else {
                         returnPaths.add(curPath);
                         if (allShortestPath) {
@@ -164,6 +185,7 @@ public class ROSPath {
                     }
                 }
 
+                // Attempt to get next possible edge
                 int index = extension.nextIndex(curPath.getLastEdge().getType(), curPath.getPathIndex());
                 if (index <= extension.lastIndex) {
                     curType = extension.constructTypes(index);
@@ -177,9 +199,11 @@ public class ROSPath {
                                 continue;
                             }
 
+                            // add to candidate path if only the following conditions are met
+                            //      - if all shortestPath: visited edge does not contain nextRel
+                            //      - if look for all path, then current path does not contain nextRel
                             boolean addPath = ((allShortestPath) && (!visitedEdges.contains(nextRel))) ||
                                     ((!allShortestPath) && (!curPath.getPath().contains(nextRel)));
-
 
                             if (addPath) {
                                 BasicCandidatePath newCandidatePath = new BasicCandidatePath(curPath, nextRel,
@@ -196,6 +220,7 @@ public class ROSPath {
 
         }
 
+        // Convert array to relationships to actual paths before returning
         ArrayList<Path> paths = new ArrayList<>();
         for (BasicCandidatePath path : returnPaths) {
             paths.add(path.buildPath());
@@ -204,6 +229,7 @@ public class ROSPath {
         return paths;
     }
 
+    // helper function: adding destination CFG nodes to first edge in path
     private void updateFirstCFGNodes(BasicCandidatePath path, HashMap<String, CFGSetting> config) {
         HashSet<List<Node>> endCFGs = CFGValidationHelper.getConnectionNodesAll(path.getLastEdge(), config);
         HashSet<Node> endNodes = new HashSet<>();
@@ -213,17 +239,26 @@ public class ROSPath {
         path.setValidCFGs(endNodes);
     }
 
-    // helper function: parse CFG settings
+    // helper function: parse how the source and destination CFG nodes relate to each other
     private HashMap<String, CFGSetting> parseCFGConfiguration(List<Map<String, Object>> cfgConfigList) {
         HashMap<String, CFGSetting> cfgConfig = new HashMap<>();
 
+        // loop through each map item
         for (Map<String, Object> cfgConfigItem : cfgConfigList) {
+            // type of relationship
             String relType = (String) cfgConfigItem.getOrDefault("name", null);
             if (relType == null) {continue;} // skip if no name provided
 
+            // get start node type and end node type
             String startLabel = (String) cfgConfigItem.getOrDefault("startLabel", null);
             String endLabel = (String) cfgConfigItem.getOrDefault("endLabel", null);
 
+            // get attribute and length
+            // default for length is none: indicating source and destination CFG block are the same
+            // e.g. {attribute : "cfgInvoke,cfgReturn", length : "2"}
+            //      this means that there are two nextCFGBlock relation between source and destination
+            //       CFG node where the first relation has the attribute cfgInvoke and the second relation
+            //       has the attribute cfgReturn
             String attribute = (String) cfgConfigItem.getOrDefault("attribute", null);
             String length = (String) cfgConfigItem.getOrDefault("length", 0);
             cfgConfig.put(startLabel + relType + endLabel, new CFGSetting(length, attribute));
@@ -233,40 +268,46 @@ public class ROSPath {
 
     }
 
+    // helper function: get CFG nodes for last edge in path, and check if it is connected to CFG node up
+    //      to second last edge in path
     public boolean getCFGPath(BasicCandidatePath path, HashMap<String, CFGSetting> config) {
+        // in case there is only one edge in path, then the cfg path always passes
         if (path.getPathSize() < 2) {
             return true;
         }
 
-        //Relationship curEdge = path.getSecondLastEdge();
-        Relationship nextEdge = path.getLastEdge();
-
+        // get last edge and the CFG node related to the second last edge
+        Relationship lastEdge = path.getLastEdge();
         HashSet<Node> startCFGs = path.getValidCFGs();
 
+        // create CFG shortest path object
         CFGShortestPath shortestPath = new CFGShortestPath(
                 new BasicEvaluationContext(tx, db),
                 (int) Integer.MAX_VALUE,
                 CFGValidationHelper.buildPathExpander("nextCFGBlock>"));
 
-        HashSet<List<Node>> endCFGs = CFGValidationHelper.getConnectionNodesAll(nextEdge, config);
+        // get the corresponding CFG node for last edge in path
+        HashSet<List<Node>> endCFGs = CFGValidationHelper.getConnectionNodesAll(lastEdge, config);
         HashSet<Node> acceptedCFGEnd = new HashSet<>();
 
+        // attempt to find a directed path between CFG nodes from path up to second last edge to last edge
         for (Node startCFG : startCFGs) {
             for (List<Node> endCFG : endCFGs) {
                 Node dstNode = endCFG.get(0);
-                Path cfgPath = shortestPath.findSinglePath(startCFG, dstNode, nextEdge);
-                if (cfgPath != null) {
+                Path cfgPath = shortestPath.findSinglePath(startCFG, dstNode, lastEdge);
+                if (cfgPath != null) { // if found, then we add to accepted CFG nodes
                     acceptedCFGEnd.add(endCFG.get(1));
                 }
             }
         }
 
+        // update the accepted CFG nodes in path and return whether or not CFG test passes
         path.setValidCFGs(acceptedCFGEnd);
         return !acceptedCFGEnd.isEmpty();
 
     }
 
-    // helper function
+    // helper function: extract accepted nodes and store them in a hashset
     public HashSet<Label> filterNodes(String acceptNodesStr) {
         if (acceptNodesStr == null) {
             return null;
@@ -282,19 +323,24 @@ public class ROSPath {
         return acceptedNodes;
     }
 
-    // helper class: CFG setting private class
+    // helper class: CFG setting - describes how source and destination CFG block relates to each other for
+    //      for a specific relationship
     public class CFGSetting {
 
         private int length;
         private String[] attribute;
 
         public CFGSetting(String length, String attribute) {
+            // must have attribute
             this.attribute = (attribute == null) ? null : attribute.split(",");
 
+            // zero or more nextCFGBlock relation
             if (length.equals("*")) {
                 this.length = -1;
+            // one or more nextCFGBlock relation
             } else if (length.equals("+")) {
                 this.length = -2;
+            // default: whatever specified
             } else {
                 this.length = Util.toInteger(length);
             }

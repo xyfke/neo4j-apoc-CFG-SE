@@ -12,11 +12,11 @@ import java.util.List;
 
 public class BasicCandidatePath {
 
-    public int pathIndex;
-    public ArrayList<Relationship> path;
-    public HashSet<Node> validCFGs;
-    public int pathSize;
-    public ArrayList<Relationship> retRel;
+    public int pathIndex;   // index in terms of RelExtension
+    public ArrayList<Relationship> path;    // list of all the relationships in the path
+    public HashSet<Node> validCFGs;     // records the last validated end CFG nodes
+    public int pathSize;    // length of path
+    public ArrayList<Relationship> retRel;      // list of retWrites in a path (used for allShortestPath)
 
     public static RelationshipType retWrite = RelationshipType.withName("retWrite");
 
@@ -50,10 +50,8 @@ public class BasicCandidatePath {
 
     // CFG setter and compare
     public void setValidCFGs(HashSet<Node> validCFGs) {this.validCFGs = validCFGs;}
-    //public boolean isCFGEmpty() {return this.validCFGs.isEmpty(); }
-    //public boolean hasCFG(Node cfgNode) { return this.validCFGs.contains(cfgNode); }
 
-    // return path build from partialResult variable
+    // convert list of path to Neo4J path
     public Path buildPath() {
         PathImpl.Builder builder = new PathImpl.Builder(this.path.get(0).getStartNode());
 
@@ -65,16 +63,12 @@ public class BasicCandidatePath {
 
     }
 
-    // get path related information
+    // get last edge in the path
     public Relationship getLastEdge() {
         return this.path.get(this.pathSize-1);
     }
 
-    /**public Relationship getSecondLastEdge() {
-        return (this.pathSize <= 1) ? null : this.path.get(this.pathSize-2);
-    }**/
-
-    // return nodes compare
+    // compare the list of retWrites with otherPath
     public boolean compareRetNodes(BasicCandidatePath otherPath) {
         if ((!otherPath.getRetRel().isEmpty()) && (!this.retRel.isEmpty())) {
             return this.retRel.get(0).getStartNode().equals(otherPath.getRetRel().get(0).getStartNode());
@@ -83,7 +77,9 @@ public class BasicCandidatePath {
         }
     }
 
-    // create all possible retWrite combinations
+    // create all possible retWrite combinations with the list of retWrites of this path
+    // e.g. [retWrite1, retWrite2, retWrite3]
+    //         [[retWrite1], [retWrite1, retWrite2], [retWrite1, retWrite2, retWrite3]]
     public ArrayList<ArrayList<Relationship>> getRetComp() {
         ArrayList<ArrayList<Relationship>> visitedComps = new ArrayList<>();
         ArrayList<Relationship> comp = new ArrayList<>();

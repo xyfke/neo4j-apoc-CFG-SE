@@ -163,11 +163,18 @@ public class CFGShortestPath {
     }
 
     //@Override
+    // Function for returning CFG path based on start and end nodes
     public Path findSinglePath( Node start, Node end, Relationship dataflowRel)
     {
         Node srcNode = dataflowRel.getStartNode();
+
+        // filter conditions:
+        //    - dataflowRel is not a pubVar relationship and the dataflowRel start node is either cVariable
+        //        or cReturn
         boolean filterVar = (srcNode.hasLabel(NodeLabel.cVariable)) || (srcNode.hasLabel(NodeLabel.cReturn));
         filterVar = (!dataflowRel.isType(RelTypes.pubVar)) && filterVar;
+
+        // run path finding algorithm
         Iterator<Path> paths = internalPaths( start, end, true, srcNode,
                 filterVar).iterator();
         Path path = paths.hasNext() ? paths.next() : null;
@@ -175,6 +182,7 @@ public class CFGShortestPath {
         return path;
     }
 
+    // currently not in use
     public Path findSinglePath(Node start, Node end, Node targetNode, boolean filterVar) {
         Iterator<Path> paths = internalPaths( start, end, true, targetNode,
                 filterVar).iterator();
@@ -263,7 +271,7 @@ public class CFGShortestPath {
         }
     }
 
-    private boolean validCFG(Node nextNode, Node targetNode, Node actualStart, boolean filterVar) {
+    /**private boolean validCFG(Node nextNode, Node targetNode, Node actualStart, boolean filterVar) {
         if (nextNode.equals(actualStart)) {
             return true;
         }
@@ -277,7 +285,7 @@ public class CFGShortestPath {
         }
 
         return true;
-    }
+    }**/
 
     private void goOneStep( DirectionData directionData, DirectionData otherSide, Hits hits, DirectionData startSide,
                             boolean stopAsap)
@@ -438,8 +446,8 @@ public class CFGShortestPath {
             }
 
 
-            this.srcNode = srcNode;                 // source variable node
-            this.checkNode = filterVar;
+            this.srcNode = srcNode;                 // start variable of last relationship
+            this.checkNode = filterVar;             // whether or not we are performing filtering
             this.actualStart = actualStart;         // start CFG node
 
         }
@@ -492,6 +500,7 @@ public class CFGShortestPath {
 
                 Node result = nextRel.getOtherNode( this.lastPath.endNode() );
 
+                // perform check to determine whether or not we are filtering
                 if (!validCFG(result)) {
                     continue;
                 }
@@ -520,6 +529,8 @@ public class CFGShortestPath {
             }
         }
 
+        // helper function: check whether any in between variables in execution path overwritten some values
+        //      focuses mostly on dataflow queries
         private boolean validCFG(Node cfgNode) {
 
             if (cfgNode.equals(this.actualStart)) {
@@ -531,6 +542,7 @@ public class CFGShortestPath {
                 for (Relationship cfgConnection : cfgConnections) {
                     // compare with next relationship - start node
                     String cfgType = cfgConnection.getType().toString();
+                    // exclude vi and vif because they don't change dataflow values
                     if (cfgType.endsWith("Destination") && !cfgType.equals("vifDestination") &&
                             !cfgType.equals("viDestination") &&
                             cfgConnection.getStartNode().equals(this.srcNode)) {
