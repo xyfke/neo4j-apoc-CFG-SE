@@ -40,6 +40,9 @@ public class Pools extends LifecycleAdapter {
     private ScheduledExecutorService scheduledExecutorService;
     private ExecutorService defaultExecutorService;
 
+    public int threads;
+    public int queueSize;
+
     private final Map<Periodic.JobInfo,Future> jobList = new ConcurrentHashMap<>();
 
     public Pools(LogService log, GlobalProcedures globalProceduresRegistry, ApocConfig apocConfig) {
@@ -56,9 +59,10 @@ public class Pools extends LifecycleAdapter {
     @Override
     public void init() {
 
-        int threads = Math.max(1, apocConfig.getInt(ApocConfig.APOC_CONFIG_JOBS_POOL_NUM_THREADS, DEFAULT_POOL_THREADS));
-
-        int queueSize = Math.max(1, apocConfig.getInt(ApocConfig.APOC_CONFIG_JOBS_QUEUE_SIZE, threads * 5));
+        threads = Math.max(1, apocConfig.getInt(ApocConfig.APOC_CONFIG_JOBS_POOL_NUM_THREADS, DEFAULT_POOL_THREADS));
+        //threads = DEFAULT_POOL_THREADS;
+        threads = 4;
+        queueSize = Math.max(1, apocConfig.getInt(ApocConfig.APOC_CONFIG_JOBS_QUEUE_SIZE, threads * 5));
 
         // ensure we use daemon threads everywhere
         ThreadFactory threadFactory = r -> {

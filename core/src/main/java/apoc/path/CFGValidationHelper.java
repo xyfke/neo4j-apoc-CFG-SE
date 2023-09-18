@@ -23,12 +23,17 @@ public class CFGValidationHelper {
     // define used relationship types
     public enum RelTypes implements RelationshipType
     {
-        varWrite, vwSource, vwDestination,
-        parWrite, pwSource, pwDestination,
-        retWrite, rwSource, rwDestination,
-        varInfFunc, vifSource, vifDestination,
-        varInfluence, viSource, viDestination,
-        nextCFGBlock, pubVar, pubTarget;
+        varWrite, varWriteSource, varWriteDestination,
+        parWrite, parWriteSource, parWriteDestination,
+        retWrite, retWriteSource, retWriteDestination,
+        varInfFunc, varInfFuncSource, varInfFuncDestination,
+        varInfluence, varInfluenceSource, varInfluenceDestination,
+        call, callSource, callDestination,
+        write, writeSource, writeDestination,
+        nextCFGBlock,
+        pubVar, pubVarSource, pubVarDestination,
+        pubTarget, pubTargetSource, pubTargetDestination,
+        compCall, compReturn, dataflowOTF, dataflowNCFG;
     }
 
     public enum NodeLabel implements Label {
@@ -36,7 +41,94 @@ public class CFGValidationHelper {
     }
 
     public static enum DataflowType {
-        PREFIX, SUFFIX, INTRA;
+        PREFIX, SUFFIX, INTRA, ALL;
+    }
+
+    // helper function: return start and end CFG nodes along with the connections
+    // return: a hashset of CFG nodes
+    public static HashSet<List<Node>> getConnectionNodesAll(Relationship edge,
+                                                            HashMap<String,
+                                                                    CFGPath.CFGSetting> cfgConfig) {
+
+        RelationshipType edgeType = edge.getType();
+        String edgeTypeStr = edgeType.name();
+        RelationshipType sourceType = RelationshipType.withName(edgeTypeStr + "Source");
+        RelationshipType destinationType = RelationshipType.withName(edgeTypeStr + "Destination");
+        RelationshipType nextCFGType = RelationshipType.withName("nextCFGBlock");
+
+        // get node label (assume: every node has only one label)
+        String startNodeLabel = edge.getStartNode().getLabels().iterator().next().name();
+        String endNodeLabel = edge.getEndNode().getLabels().iterator().next().name();
+
+        // get settings input by user
+        String configKey = startNodeLabel + edgeTypeStr + endNodeLabel;
+        CFGPath.CFGSetting config = cfgConfig.get(configKey);
+        int length = (config != null) ? config.getLength() : 0;
+        String[] attribute = (config != null) ? config.getAttribute() : null;
+
+        // get the CFG nodes in iterable
+        Iterable<Relationship> srcEdges = edge.getStartNode().getRelationships(Direction.OUTGOING, sourceType);
+        Iterable<Relationship> dstEdges = edge.getEndNode().getRelationships(Direction.OUTGOING, destinationType);
+
+        // create srcEdges Hashset
+        HashSet<List<Node>> relatedNodes = new HashSet<>();
+        for (Relationship srcEdge : srcEdges) {
+            Node endSrcNode = srcEdge.getEndNode();
+            relatedNodes.add(List.of(endSrcNode, endSrcNode));
+        }
+
+        // handle length + attribute
+        int i = 0;
+        while ((attribute != null) && (i < attribute.length)) {
+            String attributeName = attribute[i];
+            HashSet<List<Node>> tempSets = new HashSet<>();
+
+            for (List<Node> relatedNode : relatedNodes) {
+                Iterable<Relationship> tempEdges = relatedNode.get(1).getRelationships(Direction.OUTGOING,
+                        nextCFGType);
+                for (Relationship tempEdge : tempEdges) {
+                    if ((tempEdge.hasProperty(attributeName))) {
+                        tempSets.add(List.of(relatedNode.get(0), tempEdge.getEndNode()));
+                    }
+                }
+            }
+            relatedNodes = tempSets;
+            i++;
+        }
+
+        // check for shortest path
+        if (length < 0) {
+            PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
+                    new BasicEvaluationContext(tx, db),
+                    buildPathExpander("nextCFGBlock>"), (int) Integer.MAX_VALUE
+            );
+
+            HashSet<List<Node>> tempSets = new HashSet<>();
+            for (List<Node> relatedNode : relatedNodes) {
+                for (Relationship dstEdge : dstEdges) {
+                    Path path = algo.findSinglePath(relatedNode.get(1), dstEdge.getEndNode());
+                    if (path != null) {
+                        tempSets.add(List.of(relatedNode.get(0), dstEdge.getEndNode()));
+                    }
+                }
+            }
+            relatedNodes = tempSets;
+        } else {
+            HashSet<List<Node>> tempSets = new HashSet<>();
+            for (List<Node> relatedNode : relatedNodes) {
+                for (Relationship dstEdge : dstEdges) {
+                    if (dstEdge.getEndNode().equals(relatedNode.get(1))) {
+                        tempSets.add(List.of(relatedNode.get(0), dstEdge.getEndNode()));
+                    }
+                }
+            }
+            relatedNodes = tempSets;
+        }
+
+
+
+        return relatedNodes;
+
     }
 
     // helper function: return start and end CFG nodes along with the connections
@@ -51,29 +143,49 @@ public class CFGValidationHelper {
 
         if (r.isType(RelTypes.varWrite)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.vwSource);
+                    RelTypes.varWriteSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.vwDestination);
+                    RelTypes.varWriteDestination);
         } else if (r.isType(RelTypes.parWrite)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.pwSource);
+                    RelTypes.parWriteSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.pwDestination);
+                    RelTypes.parWriteDestination);
         } else if (r.isType(RelTypes.retWrite)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.rwSource);
+                    RelTypes.retWriteSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.rwDestination);
+                    RelTypes.retWriteDestination);
         } else if (r.isType(RelTypes.varInfFunc)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.vifSource);
+                    RelTypes.varInfFuncSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.vifDestination);
+                    RelTypes.varInfFuncDestination);
         } else if (r.isType(RelTypes.varInfluence)) {
             srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.viSource);
+                    RelTypes.varInfluenceSource);
             dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
-                    RelTypes.viDestination);
+                    RelTypes.varInfluenceDestination);
+        } else if (r.isType(RelTypes.call)) {
+            srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.callSource);
+            dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.callDestination);
+        } else if (r.isType(RelTypes.write)) {
+            srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.writeSource);
+            dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.writeDestination);
+        } else if (r.isType(RelTypes.pubVar)) {
+            srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.pubVarSource);
+            dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.pubVarDestination);
+        } else if (r.isType(RelTypes.pubTarget)) {
+            srcCFGs = r.getStartNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.pubTargetSource);
+            dstCFGs = r.getEndNode().getRelationships(Direction.OUTGOING,
+                    RelTypes.pubTargetDestination);
         }
 
         for (Relationship srcCFG : srcCFGs) {
@@ -82,16 +194,39 @@ public class CFGValidationHelper {
                 boolean addNode = false;
                 Relationship nextCFGBlockEdge = null;
 
-                if (r.isType(RelTypes.varWrite)) {
+                if (r.isType(RelTypes.varWrite) || r.isType(RelTypes.write) || r.isType(RelTypes.pubVar)
+                    || r.isType(RelTypes.pubTarget)) {
                     addNode = srcCFG.getEndNode().equals(dstCFG.getEndNode());
-                } else if (r.isType(RelTypes.parWrite) || r.isType(RelTypes.retWrite)) {
+                } else if (r.isType(RelTypes.parWrite) || r.isType(RelTypes.retWrite)
+                        || r.isType(RelTypes.call)) {
 
-                    Iterable<Relationship> nextCFGRels = srcCFG.getEndNode().getRelationships(Direction.OUTGOING,
+                    Iterable<Relationship> nextCFGRelsIt = srcCFG.getEndNode().getRelationships(Direction.OUTGOING,
                             RelTypes.nextCFGBlock);
+
+                    // convert iterable to array
+                    ArrayList<Relationship> nextCFGRels = new ArrayList<>();
+                    for (Relationship nextCFGItem : nextCFGRelsIt) {
+                        nextCFGRels.add(nextCFGItem);
+                    }
+
+
+                    if (r.isType(RelTypes.parWrite) && r.getStartNode().hasLabel(NodeLabel.cReturn)) {
+                        ArrayList<Relationship> tempList = new ArrayList<>();
+                        for (Relationship nextRel : nextCFGRels) {
+                            if (nextRel.hasProperty("cfgReturn") && nextRel.getProperty("cfgReturn").equals("1")) {
+                                nextCFGRelsIt = nextRel.getEndNode().getRelationships(Direction.OUTGOING,
+                                        RelTypes.nextCFGBlock);
+                                for (Relationship nextCFGItem : nextCFGRelsIt) {
+                                    tempList.add(nextCFGItem);
+                                }
+                            }
+                        }
+                        nextCFGRels = tempList;
+                    }
 
                     for (Relationship nextCFGRel : nextCFGRels) {
                         if (dstCFG.getEndNode().equals(nextCFGRel.getEndNode())) {
-                            if (r.isType(RelTypes.parWrite)) {
+                            if (r.isType(RelTypes.parWrite) || (r.isType(RelTypes.call))) {
                                 addNode = (nextCFGRel.hasProperty("cfgInvoke") &&
                                         nextCFGRel.getProperty("cfgInvoke").equals("1"));
                                 nextCFGBlockEdge = nextCFGRel;
@@ -105,6 +240,8 @@ public class CFGValidationHelper {
 
                         }
                     }
+
+
 
                 }  else if (r.isType(RelTypes.varInfFunc) || r.isType(RelTypes.varInfluence)) {
                     PathFinder<Path> algo = GraphAlgoFactory.shortestPath(
@@ -128,14 +265,45 @@ public class CFGValidationHelper {
 
     // helper function: return start and end CFG nodes along with the connections for gm parWrite
     // return: a hashset of CFG nodes
+    public static HashMap<List<Node>, Relationship> getStartEndNodes(Node node, String type, boolean start) {
+
+        HashMap<List<Node>, Relationship> cfgNodes = new HashMap<>();
+        Iterable<Relationship> targetCFGs = null;
+
+        if (type.equals("varWriteOut") || type.equals("varWriteIn")) {
+            targetCFGs = (start) ?
+                    node.getRelationships(Direction.OUTGOING, RelTypes.varWriteDestination) :
+                    node.getRelationships(Direction.OUTGOING, RelTypes.varWriteSource);
+        } else if (type.equals("parWriteOut") || type.equals("parWriteIn")) {
+            targetCFGs = (start) ?
+                    node.getRelationships(Direction.OUTGOING, RelTypes.parWriteDestination) :
+                    node.getRelationships(Direction.OUTGOING, RelTypes.parWriteSource);
+        } else if (type.equals("retWriteOut") || type.equals("retWriteIn")) {
+            targetCFGs = (start) ?
+                    node.getRelationships(Direction.OUTGOING, RelTypes.retWriteDestination) :
+                    node.getRelationships(Direction.OUTGOING, RelTypes.retWriteSource);
+        } else {
+            return cfgNodes;
+        }
+
+        for (Relationship targetCFG : targetCFGs) {
+            cfgNodes.put(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()), null);
+        }
+
+        return cfgNodes;
+
+    }
+
+    // helper function: return start and end CFG nodes along with the connections for gm parWrite
+    // return: a hashset of CFG nodes
     public static HashMap<List<Node>, Relationship> getParWriteConnectionNodes(Node pwNode,
                                                                                CandidatePath candidatePath,
-                                                                                boolean start) {
+                                                                               boolean start) {
 
         HashMap<List<Node>, Relationship> cfgNodes = new HashMap<>();
         Iterable<Relationship> targetCFGs = (start) ?
-                pwNode.getRelationships(Direction.OUTGOING, RelTypes.pwDestination) :
-                pwNode.getRelationships(Direction.OUTGOING, RelTypes.pwSource);
+                pwNode.getRelationships(Direction.OUTGOING, RelTypes.parWriteDestination) :
+                pwNode.getRelationships(Direction.OUTGOING, RelTypes.parWriteSource);
 
         for (Relationship targetCFG : targetCFGs) {
             cfgNodes.put(List.of(targetCFG.getEndNode(), targetCFG.getEndNode()), null);

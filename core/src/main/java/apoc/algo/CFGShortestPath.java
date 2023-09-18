@@ -26,14 +26,7 @@ import org.neo4j.graphalgo.EvaluationContext;
 import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphalgo.impl.util.PathImpl;
 import org.neo4j.graphalgo.impl.util.PathImpl.Builder;
-import org.neo4j.graphdb.Direction;
-import org.neo4j.graphdb.Entity;
-import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Path;
-import org.neo4j.graphdb.PathExpander;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.ResourceIterator;
+import org.neo4j.graphdb.*;
 import org.neo4j.graphdb.traversal.BranchState;
 import org.neo4j.graphdb.traversal.TraversalMetadata;
 import org.neo4j.internal.helpers.collection.IterableWrapper;
@@ -172,11 +165,10 @@ public class CFGShortestPath {
     //@Override
     public Path findSinglePath( Node start, Node end, Relationship dataflowRel)
     {
-        Node targetNode = dataflowRel.getEndNode();
-        boolean filterVar = (targetNode.hasLabel(NodeLabel.cVariable) &&
-                (dataflowRel.isType(RelTypes.varWrite) ||
-                        dataflowRel.isType(RelTypes.parWrite)));
-        Iterator<Path> paths = internalPaths( start, end, true, targetNode,
+        Node srcNode = dataflowRel.getStartNode();
+        boolean filterVar = (srcNode.hasLabel(NodeLabel.cVariable)) || (srcNode.hasLabel(NodeLabel.cReturn));
+        filterVar = (!dataflowRel.isType(RelTypes.pubVar)) && filterVar;
+        Iterator<Path> paths = internalPaths( start, end, true, srcNode,
                 filterVar).iterator();
         Path path = paths.hasNext() ? paths.next() : null;
         memoryTracker.reset();
@@ -202,7 +194,7 @@ public class CFGShortestPath {
     }
 
     private Iterable<Path> internalPaths( Node start, Node end, boolean stopAsap,
-                                          Node targetNode, boolean filterVar)
+                                          Node srcNode, boolean filterVar)
     {
         lastMetadata = new Metadata();
         if ( start.equals( end ) )
@@ -214,10 +206,10 @@ public class CFGShortestPath {
         MutableBoolean sharedStop = new MutableBoolean();
         MutableInt sharedCurrentDepth = new MutableInt( 0 );
         try ( DirectionData startData = new DirectionData( start, sharedFrozenDepth, sharedStop,
-                sharedCurrentDepth, expander, memoryTracker, filterVar, targetNode, start);
+                sharedCurrentDepth, expander, memoryTracker, filterVar, srcNode, start);
               DirectionData endData = new DirectionData( end, sharedFrozenDepth,
                       sharedStop, sharedCurrentDepth, expander.reverse(), memoryTracker,
-                      filterVar, targetNode, start) )
+                      filterVar, srcNode, start) )
         {
             while ( startData.hasNext() || endData.hasNext() )
             {
@@ -277,7 +269,7 @@ public class CFGShortestPath {
         }
 
         Iterable<Relationship> overWriteConns = nextNode.getRelationships(Direction.INCOMING,
-                RelTypes.vwDestination, RelTypes.rwDestination);
+                RelTypes.varWriteDestination, RelTypes.retWriteDestination);
         for (Relationship overWriteConn : overWriteConns) {
             if (overWriteConn.getStartNode().equals(targetNode)) {
                 return false;
@@ -412,7 +404,7 @@ public class CFGShortestPath {
         private boolean stop;
         private final PathExpander expander;
         private final boolean checkNode;
-        private final Node targetCompNode;
+        private final Node srcNode;
         private final Node actualStart;
 
         DirectionData( Node startNode,
@@ -422,7 +414,7 @@ public class CFGShortestPath {
                        PathExpander expander,
                        MemoryTracker memoryTracker,
                        boolean filterVar,
-                       Node targetNode,
+                       Node srcNode,
                        Node actualStart)
         {
             this.startNode = startNode;
@@ -446,9 +438,9 @@ public class CFGShortestPath {
             }
 
 
-            this.targetCompNode = targetNode;
+            this.srcNode = srcNode;                 // source variable node
             this.checkNode = filterVar;
-            this.actualStart = startNode;
+            this.actualStart = actualStart;         // start CFG node
 
         }
 
@@ -535,10 +527,13 @@ public class CFGShortestPath {
             }
 
             if (this.checkNode) {
-                Iterable<Relationship> cfgConnections = cfgNode.getRelationships(Direction.INCOMING,
-                        RelTypes.rwDestination, RelTypes.vwDestination);
+                Iterable<Relationship> cfgConnections = cfgNode.getRelationships(Direction.INCOMING);
                 for (Relationship cfgConnection : cfgConnections) {
-                    if (cfgConnection.getStartNode().equals(this.targetCompNode)) {
+                    // compare with next relationship - start node
+                    String cfgType = cfgConnection.getType().toString();
+                    if (cfgType.endsWith("Destination") && !cfgType.equals("vifDestination") &&
+                            !cfgType.equals("viDestination") &&
+                            cfgConnection.getStartNode().equals(this.srcNode)) {
                         return false;
                     }
                 }
