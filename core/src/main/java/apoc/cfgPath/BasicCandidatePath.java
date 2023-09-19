@@ -80,6 +80,11 @@ public class BasicCandidatePath {
         return this.path.get(this.pathSize-1);
     }
 
+    // get last edge in the path
+    public Relationship getSecondLastEdge() {
+        return this.path.get(this.pathSize-2);
+    }
+
     // compare the list of retWrites with otherPath
     public boolean compareRetNodes(BasicCandidatePath otherPath) {
         if ((!otherPath.getRetRel().isEmpty()) && (!this.retRel.isEmpty())) {

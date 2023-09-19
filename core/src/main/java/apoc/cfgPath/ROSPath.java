@@ -1,6 +1,7 @@
 package apoc.cfgPath;
 
 import apoc.algo.CFGShortestPath;
+import apoc.path.CandidatePath;
 import apoc.util.Util;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -144,7 +145,10 @@ public class ROSPath {
 
         BasicCandidatePath foundCandidatePath = null;
         ArrayList<ArrayList<Relationship>> retCovered = new ArrayList<>();
-        //ArrayList<Relationship> visitedEdge = new ArrayList<>();
+        HashSet<Relationship> visitedEdge = new HashSet<>();
+
+        int pathLen = -1;
+        boolean foundPath = false;
 
         // process each candidate path and verify that it is valid before proceeding the search
         while (!queuePath.isEmpty()) {
@@ -153,7 +157,7 @@ public class ROSPath {
             // If we already found something, check if we want to proceed by checking return edge
             // combinations
             if ((allShortestPath) && (foundCandidatePath != null)) {
-                //visitedEdges.addAll(visitedEdge);
+                visitedEdges.addAll(visitedEdge);
                 if ((!curPath.compareRetNodes(foundCandidatePath))) {
                     continue;
                 } else {
@@ -163,11 +167,24 @@ public class ROSPath {
                 }
             }
 
+            int curLen = curPath.getPathSize();
+            if (allShortestPath && foundPath && curLen > pathLen) {
+                // if path has been found and current path is longer than found path, can break
+                break;
+            }
+
+            if (allShortestPath && curLen > pathLen) {
+                // add all relationships found at previous path length to visitedRels
+                visitedEdges.addAll(visitedEdge);
+                visitedEdge = new HashSet<Relationship>();
+            }
+            pathLen = curLen;
+
             // Make sure it passes the CFG test before proceeding to look further
-            if ((!cfgCheck) || getCFGPath(curPath, cfgConfig)) {
+            if ((!cfgCheck) || getCFGPath(curPath, cfgConfig, backward)) {
 
                 // Only add to visitedEdges if we are looking for shortest path
-                if (allShortestPath) {visitedEdges.add(curPath.getLastEdge()); }
+                if (allShortestPath) {visitedEdge.add(curPath.getLastEdge()); }
 
                 // Add to return path only if the following conditions are met:
                 //      - Matches last edge type of relationship
@@ -178,11 +195,12 @@ public class ROSPath {
                     // need to also pass CFG test if there is an end edge
                     if (endEdge != null) {
                         BasicCandidatePath tempPath = new BasicCandidatePath(curPath, endEdge, curPath.pathIndex);
-                        if ((!cfgCheck) || getCFGPath(tempPath, cfgConfig)) {
+                        if ((!cfgCheck) || getCFGPath(tempPath, cfgConfig, backward)) {
                             returnPaths.add(tempPath);
                             if (allShortestPath) {
                                 foundCandidatePath = curPath;
                                 retCovered.addAll(tempPath.getRetComp());
+                                foundPath = true;
                                 continue;
                             }
                         }
@@ -192,6 +210,7 @@ public class ROSPath {
                         if (allShortestPath) {
                             foundCandidatePath = curPath;
                             retCovered.addAll(curPath.getRetComp());
+                            foundPath = true;
                             continue;
                         }
                     }
@@ -290,15 +309,16 @@ public class ROSPath {
 
     // helper function: get CFG nodes for last edge in path, and check if it is connected to CFG node up
     //      to second last edge in path
-    public boolean getCFGPath(BasicCandidatePath path, HashMap<String, CFGSetting> config) {
+    public boolean getCFGPath(BasicCandidatePath path, HashMap<String, CFGSetting> config, boolean backward) {
         // in case there is only one edge in path, then the cfg path always passes
         if (path.getPathSize() < 2) {
             return true;
         }
 
         // get last edge and the CFG node related to the second last edge
+        Relationship condEdge = (backward) ? path.getSecondLastEdge() : path.getLastEdge();
         Relationship lastEdge = path.getLastEdge();
-        HashSet<Node> startCFGs = path.getValidCFGs();
+        HashSet<Node> prevCFGs = path.getValidCFGs(); // nodes of subpath
 
         // create CFG shortest path object
         CFGShortestPath shortestPath = new CFGShortestPath(
@@ -307,23 +327,25 @@ public class ROSPath {
                 CFGValidationHelper.buildPathExpander("nextCFGBlock>"));
 
         // get the corresponding CFG node for last edge in path
-        HashSet<List<Node>> endCFGs = CFGValidationHelper.getConnectionNodesAll(lastEdge, config);
-        HashSet<Node> acceptedCFGEnd = new HashSet<>();
+        HashSet<List<Node>> curCFGs = CFGValidationHelper.getConnectionNodesAll(lastEdge, config); // nodes of new edge
+        HashSet<Node> acceptedNewCFG = new HashSet<>();
 
         // attempt to find a directed path between CFG nodes from path up to second last edge to last edge
-        for (Node startCFG : startCFGs) {
-            for (List<Node> endCFG : endCFGs) {
-                Node dstNode = endCFG.get(0);
-                Path cfgPath = shortestPath.findSinglePath(startCFG, dstNode, lastEdge);
+        for (Node prevCFG : prevCFGs) {   // nodes of subpath
+            for (List<Node> curCFG : curCFGs) {   // nodes of new edge
+                // Node curNode = prevCFG.get(0);
+                Node startCFG = (backward) ? curCFG.get(1) : prevCFG;
+                Node dstNode = (backward) ? prevCFG : curCFG.get(0);
+                Path cfgPath = shortestPath.findSinglePath(startCFG, dstNode, condEdge);
                 if (cfgPath != null) { // if found, then we add to accepted CFG nodes
-                    acceptedCFGEnd.add(endCFG.get(1));
+                    acceptedNewCFG.add(backward ? curCFG.get(0) : curCFG.get(1));
                 }
             }
         }
 
         // update the accepted CFG nodes in path and return whether or not CFG test passes
-        path.setValidCFGs(acceptedCFGEnd);
-        return !acceptedCFGEnd.isEmpty();
+        path.setValidCFGs(acceptedNewCFG);
+        return !acceptedNewCFG.isEmpty();
 
     }
 
