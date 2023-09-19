@@ -17,14 +17,26 @@ public class RelExtension {
     public int termIndexEnd = -1;
 
     // constructor for extracting relationship pattern passed in
-    public RelExtension(String pattern, boolean loopBack) {
+    public RelExtension(String pattern, boolean loopBack, boolean backward) {
 
         String[] sequenceList = pattern.split(",");
         this.loopBack = loopBack;
 
         // e.g. pattern = "varWrite|parWrite*,retWrite+,retWrite"
 
-        for (String sequence : sequenceList) {
+        int increment = 1;
+        int i = 0;
+        int endPoint = sequenceList.length;
+
+        if (backward) {
+            increment = -1;
+            i = sequenceList.length-1;
+            endPoint = -1;
+        }
+
+        while (i != endPoint) {
+
+            String sequence = sequenceList[i];
 
             // handle + in pattern, indicating one or more of such relationship type
             if (sequence.endsWith("+")) {
@@ -39,6 +51,8 @@ public class RelExtension {
             } else {
                 this.relSequence.add(new RelationSequence(sequence, false));
             }
+
+            i += increment;
         }
 
         this.lastIndex = relSequence.size()-1;

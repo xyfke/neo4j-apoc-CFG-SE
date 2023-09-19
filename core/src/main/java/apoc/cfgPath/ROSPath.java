@@ -54,21 +54,31 @@ public class ROSPath {
         boolean cfgCheck = Util.toBoolean(config.getOrDefault("cfgCheck", true));
         String relSequence = (String) config.getOrDefault("relSequence", null);
         boolean repeat = Util.toBoolean(config.getOrDefault("repeat", false));
+        boolean backward = Util.toBoolean(config.getOrDefault("backward", false));
         boolean allShortestPath = Util.toBoolean(config.getOrDefault("allShortestPath", false));
         List<Map<String, Object>> cfgConfigurationList =
                 (List<Map<String,Object>>) config.getOrDefault("cfgConfiguration", null);
         HashMap<String, CFGSetting> cfgConfig = parseCFGConfiguration(cfgConfigurationList);
-        RelExtension extension = new RelExtension(relSequence, repeat);
+        RelExtension extension = new RelExtension(relSequence, repeat, backward);
         HashSet<Label> acceptedNodes = filterNodes((String) config.getOrDefault("nodeFilter", null));
 
-        return findPath(startNode, endNode, startEdge, endEdge, cfgConfig, extension, allShortestPath, cfgCheck,
-                acceptedNodes);
+        if (backward) {
+            return findPath(endNode, startNode, endEdge, startEdge, cfgConfig, extension, allShortestPath, cfgCheck,
+                    acceptedNodes, backward);
+        } else {
+            return findPath(startNode, endNode, startEdge, endEdge, cfgConfig, extension, allShortestPath, cfgCheck,
+                    acceptedNodes, backward);
+        }
+
+
+
     }
 
     // helper function: find path
     public List<Path> findPath(Node startNode, Node endNode, Relationship startEdge, Relationship endEdge,
                                HashMap<String, CFGSetting> cfgConfig, RelExtension extension,
-                               boolean allShortestPath, boolean cfgCheck, HashSet<Label> acceptedNodes) {
+                               boolean allShortestPath, boolean cfgCheck, HashSet<Label> acceptedNodes,
+                               boolean backward) {
 
         // variables
         List<BasicCandidatePath> returnPaths = new ArrayList<>();
@@ -82,7 +92,7 @@ public class ROSPath {
 
         // Start edge not null, reassign start node with its ending node
         if (startEdge != null) {
-            start = startEdge.getEndNode();
+            start = (backward) ? startEdge.getStartNode() : startEdge.getEndNode();
             curPath = new BasicCandidatePath(startEdge, -1);
             if (cfgCheck) {updateFirstCFGNodes(curPath, cfgConfig);} // update CFG related nodes
             queuePath.add(curPath);
@@ -91,7 +101,7 @@ public class ROSPath {
 
         // End edge not null, reassign end node with its starting node
         if (endEdge != null) {
-            end = endEdge.getStartNode();
+            end = (backward) ? endEdge.getEndNode() : endEdge.getStartNode();
         }
 
         // if we don't have a start node, then return none
@@ -112,8 +122,9 @@ public class ROSPath {
                 nextRels = start.getRelationships(Direction.OUTGOING,
                         curT.toArray(RelationshipType[]::new));
                 for (Relationship nextRel : nextRels) {
+                    Node nextNode = (backward) ? nextRel.getStartNode() : nextRel.getEndNode();
                     if ((acceptedNodes != null) &&
-                            (!acceptedNodes.contains(nextRel.getEndNode().getLabels().iterator().next()))) {
+                            (!acceptedNodes.contains(nextNode.getLabels().iterator().next()))) {
                         continue;
                     }
 
@@ -161,8 +172,9 @@ public class ROSPath {
                 // Add to return path only if the following conditions are met:
                 //      - Matches last edge type of relationship
                 //      - If has end node/end edge, also needs to match that
+                Node compNode = backward ? curPath.getLastEdge().getStartNode() : curPath.getLastEdge().getEndNode();
                 if ((extension.isEndIndex(curPath.getPathIndex())) &&
-                        ((end == null) || (curPath.getLastEdge().getEndNode().equals(end)))) {
+                        ((end == null) || (compNode.equals(end)))) {
                     // need to also pass CFG test if there is an end edge
                     if (endEdge != null) {
                         BasicCandidatePath tempPath = new BasicCandidatePath(curPath, endEdge, curPath.pathIndex);
@@ -191,11 +203,15 @@ public class ROSPath {
                     curType = extension.constructTypes(index);
                     int i = 0;
                     for (ArrayList<RelationshipType> curT : curType) {
-                        nextRels = curPath.getLastEdge().getEndNode().getRelationships(Direction.OUTGOING,
+                        Node curNode = backward ? curPath.getLastEdge().getStartNode() :
+                                curPath.getLastEdge().getEndNode();
+                        Direction dir = backward ? Direction.INCOMING : Direction.OUTGOING;
+                        nextRels = curNode.getRelationships(dir,
                                 curT.toArray(RelationshipType[]::new));
                         for (Relationship nextRel : nextRels) {
+                            Node nextNode = (backward) ? nextRel.getStartNode() : nextRel.getEndNode();
                             if ((acceptedNodes != null) &&
-                                    (!acceptedNodes.contains(nextRel.getEndNode().getLabels().iterator().next()))) {
+                                    (!acceptedNodes.contains(nextNode.getLabels().iterator().next()))) {
                                 continue;
                             }
 

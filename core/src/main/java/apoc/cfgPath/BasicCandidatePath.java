@@ -63,6 +63,18 @@ public class BasicCandidatePath {
 
     }
 
+    // convert list of path to Neo4J path
+    public Path reversebuildPath() {
+        PathImpl.Builder builder = new PathImpl.Builder(this.path.get(this.path.size()-1).getStartNode());
+
+        for (int i = this.path.size()-1; i > -1; i--) {
+            builder = builder.push(this.path.get(i));
+        }
+
+        return builder.build();
+
+    }
+
     // get last edge in the path
     public Relationship getLastEdge() {
         return this.path.get(this.pathSize-1);
