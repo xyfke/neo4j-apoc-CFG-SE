@@ -239,7 +239,11 @@ public class ROSPath {
         // Convert array to relationships to actual paths before returning
         ArrayList<Path> paths = new ArrayList<>();
         for (BasicCandidatePath path : returnPaths) {
-            paths.add(path.buildPath());
+            if (backward) {
+                paths.add(path.reversebuildPath());
+            } else {
+                paths.add(path.buildPath());
+            }
         }
 
         return paths;
