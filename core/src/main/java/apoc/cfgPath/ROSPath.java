@@ -194,7 +194,8 @@ public class ROSPath {
                         ((end == null) || (compNode.equals(end)))) {
                     // need to also pass CFG test if there is an end edge
                     if (endEdge != null) {
-                        BasicCandidatePath tempPath = new BasicCandidatePath(curPath, endEdge, curPath.pathIndex);
+                        BasicCandidatePath tempPath = new BasicCandidatePath(curPath, endEdge,
+                                curPath.pathIndex, backward);
                         if ((!cfgCheck) || getCFGPath(tempPath, cfgConfig, backward)) {
                             returnPaths.add(tempPath);
                             if (allShortestPath) {
@@ -242,7 +243,7 @@ public class ROSPath {
 
                             if (addPath) {
                                 BasicCandidatePath newCandidatePath = new BasicCandidatePath(curPath, nextRel,
-                                        index+i);
+                                        index+i, backward);
                                 queuePath.add(newCandidatePath);
                             }
                         }

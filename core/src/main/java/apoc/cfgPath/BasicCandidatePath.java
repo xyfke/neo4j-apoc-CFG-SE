@@ -31,14 +31,17 @@ public class BasicCandidatePath {
     }
 
     // constructor for appending to old path
-    public BasicCandidatePath(BasicCandidatePath oldPath, Relationship curEdge, int pathIndex) {
+    public BasicCandidatePath(BasicCandidatePath oldPath, Relationship curEdge, int pathIndex, boolean backward) {
         this.path = new ArrayList<>(oldPath.getPath());
         this.path.add(curEdge);
         this.validCFGs = new HashSet<>(oldPath.getValidCFGs());
         this.pathIndex = pathIndex;
         this.pathSize = oldPath.getPathSize() + 1;
         this.retRel = new ArrayList<>(oldPath.getRetRel());
-        if (curEdge.isType(retWrite)) { this.retRel.add(curEdge); }
+        if (curEdge.isType(retWrite)) {
+            int indexPos = backward ? 0 : this.retRel.size();
+            this.retRel.add(indexPos, curEdge);
+        }
     }
 
     // get attributes
