@@ -95,7 +95,7 @@ public class ROSPath {
         if (startEdge != null) {
             start = (backward) ? startEdge.getStartNode() : startEdge.getEndNode();
             curPath = new BasicCandidatePath(startEdge, -1);
-            if (cfgCheck) {updateFirstCFGNodes(curPath, cfgConfig);} // update CFG related nodes
+            if (cfgCheck) {updateFirstCFGNodes(curPath, cfgConfig, backward);} // update CFG related nodes
             queuePath.add(curPath);
             if (allShortestPath) {visitedEdges.add(startEdge);} // update visited nodes
         }
@@ -132,7 +132,7 @@ public class ROSPath {
                     // only create path if we are looking for all path or it is not in visited edges
                     if ((!allShortestPath) || (!visitedEdges.contains(nextRel))) {
                         curPath = new BasicCandidatePath(nextRel, y);
-                        if (cfgCheck) {updateFirstCFGNodes(curPath, cfgConfig);}
+                        if (cfgCheck) {updateFirstCFGNodes(curPath, cfgConfig, backward);}
                         queuePath.add(curPath);
                     }
 
@@ -270,11 +270,11 @@ public class ROSPath {
     }
 
     // helper function: adding destination CFG nodes to first edge in path
-    private void updateFirstCFGNodes(BasicCandidatePath path, HashMap<String, CFGSetting> config) {
+    private void updateFirstCFGNodes(BasicCandidatePath path, HashMap<String, CFGSetting> config, boolean backward) {
         HashSet<List<Node>> endCFGs = CFGValidationHelper.getConnectionNodesAll(path.getLastEdge(), config);
         HashSet<Node> endNodes = new HashSet<>();
         for (List<Node> endCFG : endCFGs) {
-            endNodes.add(endCFG.get(1));
+            endNodes.add(backward ? endCFG.get(0) : endCFG.get(1));
         }
         path.setValidCFGs(endNodes);
     }
