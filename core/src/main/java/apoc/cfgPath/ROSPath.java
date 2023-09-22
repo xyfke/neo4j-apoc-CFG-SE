@@ -283,6 +283,10 @@ public class ROSPath {
     private HashMap<String, CFGSetting> parseCFGConfiguration(List<Map<String, Object>> cfgConfigList) {
         HashMap<String, CFGSetting> cfgConfig = new HashMap<>();
 
+        if (cfgConfigList == null) {
+            return cfgConfig;
+        }
+
         // loop through each map item
         for (Map<String, Object> cfgConfigItem : cfgConfigList) {
             // type of relationship
