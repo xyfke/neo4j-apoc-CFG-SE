@@ -31,14 +31,17 @@ public class BasicCandidatePath {
     }
 
     // constructor for appending to old path
-    public BasicCandidatePath(BasicCandidatePath oldPath, Relationship curEdge, int pathIndex) {
+    public BasicCandidatePath(BasicCandidatePath oldPath, Relationship curEdge, int pathIndex, boolean backward) {
         this.path = new ArrayList<>(oldPath.getPath());
         this.path.add(curEdge);
         this.validCFGs = new HashSet<>(oldPath.getValidCFGs());
         this.pathIndex = pathIndex;
         this.pathSize = oldPath.getPathSize() + 1;
         this.retRel = new ArrayList<>(oldPath.getRetRel());
-        if (curEdge.isType(retWrite)) { this.retRel.add(curEdge); }
+        if (curEdge.isType(retWrite)) {
+            int indexPos = backward ? 0 : this.retRel.size();
+            this.retRel.add(indexPos, curEdge);
+        }
     }
 
     // get attributes
@@ -63,9 +66,26 @@ public class BasicCandidatePath {
 
     }
 
+    // convert list of path to Neo4J path
+    public Path reversebuildPath() {
+        PathImpl.Builder builder = new PathImpl.Builder(this.path.get(this.path.size()-1).getStartNode());
+
+        for (int i = this.path.size()-1; i > -1; i--) {
+            builder = builder.push(this.path.get(i));
+        }
+
+        return builder.build();
+
+    }
+
     // get last edge in the path
     public Relationship getLastEdge() {
         return this.path.get(this.pathSize-1);
+    }
+
+    // get last edge in the path
+    public Relationship getSecondLastEdge() {
+        return this.path.get(this.pathSize-2);
     }
 
     // compare the list of retWrites with otherPath
