@@ -1,7 +1,6 @@
 package apoc.cfgPath;
 
 import apoc.algo.CFGShortestPath;
-import apoc.path.CandidatePath;
 import apoc.util.Util;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -62,13 +61,14 @@ public class ROSPath {
         HashMap<String, CFGSetting> cfgConfig = parseCFGConfiguration(cfgConfigurationList);
         RelExtension extension = new RelExtension(relSequence, repeat, backward);
         HashSet<Label> acceptedNodes = filterNodes((String) config.getOrDefault("nodeFilter", null));
+        boolean isStartEdgeValid = Util.toBoolean(config.getOrDefault("isStartEdgeValid", false));
 
         if (backward) {
             return findPath(endNode, startNode, endEdge, startEdge, cfgConfig, extension, allShortestPath, cfgCheck,
-                    acceptedNodes, backward);
+                    acceptedNodes, backward, isStartEdgeValid);
         } else {
             return findPath(startNode, endNode, startEdge, endEdge, cfgConfig, extension, allShortestPath, cfgCheck,
-                    acceptedNodes, backward);
+                    acceptedNodes, backward, isStartEdgeValid);
         }
 
 
@@ -79,7 +79,7 @@ public class ROSPath {
     public List<Path> findPath(Node startNode, Node endNode, Relationship startEdge, Relationship endEdge,
                                HashMap<String, CFGSetting> cfgConfig, RelExtension extension,
                                boolean allShortestPath, boolean cfgCheck, HashSet<Label> acceptedNodes,
-                               boolean backward) {
+                               boolean backward, boolean isStartEdgeValid) {
 
         // variables
         List<BasicCandidatePath> returnPaths = new ArrayList<>();
@@ -89,7 +89,7 @@ public class ROSPath {
         Node end = endNode;
         ArrayList<ArrayList<RelationshipType>> curType;
         Iterable<Relationship> nextRels;
-        BasicCandidatePath curPath;
+        BasicCandidatePath curPath = null;
 
         // Start edge not null, reassign start node with its ending node
         if (startEdge != null) {
@@ -108,6 +108,10 @@ public class ROSPath {
         // if we don't have a start node, then return none
         if (start == null) {
             return null;
+        }
+
+        if ((isStartEdgeValid) && (end != null) && (curPath != null)) {
+            returnPaths.add(curPath);
         }
 
 
