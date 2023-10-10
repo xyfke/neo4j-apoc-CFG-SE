@@ -110,7 +110,7 @@ public class ROSPath {
             return null;
         }
 
-        if ((isStartEdgeValid) && (end != null) && (curPath != null)) {
+        if ((isStartEdgeValid) && (end == null) && (curPath != null)) {
             returnPaths.add(curPath);
         }
 
