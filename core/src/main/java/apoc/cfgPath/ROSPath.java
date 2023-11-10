@@ -172,7 +172,7 @@ public class ROSPath {
             }
 
             int curLen = curPath.getPathSize();
-            if (allShortestPath && foundPath && curLen > pathLen) {
+            if (retCovered.isEmpty() && allShortestPath && foundPath && curLen > pathLen) {
                 // if path has been found and current path is longer than found path, can break
                 break;
             }
