@@ -31,7 +31,7 @@ public class CFGValidationHelper {
     // return: a hashset of CFG nodes
     public static HashSet<List<Node>> getConnectionNodesAll(Relationship edge,
                                                             HashMap<String,
-                                                                    ROSPath.CFGSetting> cfgConfig) {
+                                                                    CFGSetting> cfgConfig) {
 
         RelationshipType edgeType = edge.getType();
         String edgeTypeStr = edgeType.name();
@@ -45,7 +45,7 @@ public class CFGValidationHelper {
 
         // get settings input by user
         String configKey = startNodeLabel + edgeTypeStr + endNodeLabel;
-        ROSPath.CFGSetting config = cfgConfig.get(configKey);
+        CFGSetting config = cfgConfig.get(configKey);
         int length = (config != null) ? config.getLength() : 0;
         String[] attribute = (config != null) ? config.getAttribute() : null;
 
