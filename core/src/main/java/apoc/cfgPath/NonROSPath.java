@@ -41,23 +41,25 @@ public class NonROSPath {
 
         // read other settings configuration
         // Accepted parameters:
-        //    - cfgCheck: whether or not to perform cfg check (default: true)
-        //    - relSequence: relationship pattern in return path (default: null)
+        //    - cfg: whether or not to perform cfg check (default: true)
+        //    - relSeq: relationship pattern in return path (default: null)
         //    - repeat: whether or not above relSequence repeats (default: false)
-        //    - allShortestPath: whether or not we return shortest path or all paths (default: false)
-        //    - acceptedNodes: accepted nodes in our shortest path (default: null)
-        //    - cfgConfiguration: describes how the source and destination CFG blocks relate to each other
+        //    - backward: find path with a backward search (default: false)
+        //    - shortest: whether or not we return shortest path or all paths (default: false)
+        //    - filter: accepted nodes in our shortest path (default: null)
+        //    - config: describes how the source and destination CFG blocks relate to each other
         //          for a particular type of relation
-        boolean cfgCheck = Util.toBoolean(config.getOrDefault("cfgCheck", true));
-        String relSequence = (String) config.getOrDefault("relSequence", null);
+        //    - isStartEdgeValid: is first edge consider a valid path (default: false)
+        boolean cfgCheck = Util.toBoolean(config.getOrDefault("cfg", true));
+        String relSequence = (String) config.getOrDefault("relSeq", null);
         boolean repeat = Util.toBoolean(config.getOrDefault("repeat", false));
         boolean backward = Util.toBoolean(config.getOrDefault("backward", false));
-        boolean allShortestPath = Util.toBoolean(config.getOrDefault("allShortestPath", false));
+        boolean allShortestPath = Util.toBoolean(config.getOrDefault("shortest", false));
         List<Map<String, Object>> cfgConfigurationList =
-                (List<Map<String,Object>>) config.getOrDefault("cfgConfiguration", null);
+                (List<Map<String,Object>>) config.getOrDefault("config", null);
         HashMap<String, CFGSetting> cfgConfig = parseCFGConfiguration(cfgConfigurationList);
         RelExtension extension = new RelExtension(relSequence, repeat, backward);
-        HashSet<Label> acceptedNodes = filterNodes((String) config.getOrDefault("nodeFilter", null));
+        HashSet<Label> acceptedNodes = filterNodes((String) config.getOrDefault("filter", null));
         boolean isStartEdgeValid = Util.toBoolean(config.getOrDefault("isStartEdgeValid", false));
 
         if (backward) {
