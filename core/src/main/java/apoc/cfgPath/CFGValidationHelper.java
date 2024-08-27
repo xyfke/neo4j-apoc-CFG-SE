@@ -1,6 +1,5 @@
 package apoc.cfgPath;
 
-import apoc.path.CFGPath;
 import apoc.path.RelationshipTypeAndDirections;
 import org.neo4j.graphalgo.BasicEvaluationContext;
 import org.neo4j.graphalgo.GraphAlgoFactory;
@@ -9,7 +8,9 @@ import org.neo4j.graphdb.*;
 import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.procedure.Context;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 
 public class CFGValidationHelper {
 
@@ -29,10 +30,11 @@ public class CFGValidationHelper {
 
     // helper function: return start and end CFG nodes along with the connections
     // return: a hashset of CFG nodes
-    public static HashSet<List<Node>> getConnectionNodesAll(Relationship edge,
+    public static HashMap<List<Node>, Integer> getConnectionNodesAll(Relationship edge,
                                                             HashMap<String,
                                                                     CFGSetting> cfgConfig) {
 
+        // get source and destination edges
         RelationshipType edgeType = edge.getType();
         String edgeTypeStr = edgeType.name();
         RelationshipType sourceType = RelationshipType.withName(edgeTypeStr + "Source");
@@ -55,9 +57,15 @@ public class CFGValidationHelper {
 
         // create srcEdges Hashset
         HashSet<List<Node>> relatedNodes = new HashSet<>();
+        HashMap<List<Node>, Integer> returnedNodes;
+        HashMap<Node, Integer> lineNumberSet = new HashMap<>();   // get line number
         for (Relationship srcEdge : srcEdges) {
             Node endSrcNode = srcEdge.getEndNode();
             relatedNodes.add(List.of(endSrcNode, endSrcNode));
+
+            if (srcEdge.hasProperty("LINE_NUMBER")) {
+                lineNumberSet.put(endSrcNode, Integer.parseInt(srcEdge.getProperty("LINE_NUMBER").toString()));
+            }
         }
 
         // handle length + attribute
@@ -86,31 +94,43 @@ public class CFGValidationHelper {
                     buildPathExpander("nextCFGBlock>"), (int) Integer.MAX_VALUE
             );
 
-            HashSet<List<Node>> tempSets = new HashSet<>();
+            HashMap<List<Node>, Integer> tempMaps = new HashMap<>();
             for (List<Node> relatedNode : relatedNodes) {
                 for (Relationship dstEdge : dstEdges) {
                     Path path = algo.findSinglePath(relatedNode.get(1), dstEdge.getEndNode());
                     if (path != null) {
-                        tempSets.add(List.of(relatedNode.get(0), dstEdge.getEndNode()));
+                        //tempMaps.put(List.of(relatedNode.get(0), dstEdge.getEndNode()), 0);
+                        if (edgeTypeStr.equals("varWrite")) {
+                            tempMaps.put(List.of(relatedNode.get(0), dstEdge.getEndNode()), lineNumberSet.get(relatedNode.get(0)));
+                        } else if (dstEdge.hasProperty("LINE_NUMBER")) {
+                            tempMaps.put(List.of(relatedNode.get(0), dstEdge.getEndNode()),
+                                    Integer.parseInt(dstEdge.getProperty("LINE_NUMBER").toString()));
+                        }
                     }
                 }
             }
-            relatedNodes = tempSets;
+            returnedNodes = tempMaps;
         } else {
-            HashSet<List<Node>> tempSets = new HashSet<>();
+            HashMap<List<Node>,Integer> tempMaps = new HashMap<>();
             for (List<Node> relatedNode : relatedNodes) {
                 for (Relationship dstEdge : dstEdges) {
                     if (dstEdge.getEndNode().equals(relatedNode.get(1))) {
-                        tempSets.add(List.of(relatedNode.get(0), dstEdge.getEndNode()));
+                        //tempMaps.put(List.of(relatedNode.get(0), dstEdge.getEndNode()), 0);
+                        if (edgeTypeStr.equals("varWrite")) {
+                            tempMaps.put(List.of(relatedNode.get(0), dstEdge.getEndNode()), lineNumberSet.get(relatedNode.get(0)));
+                        } else if (dstEdge.hasProperty("LINE_NUMBER")) {
+                            tempMaps.put(List.of(relatedNode.get(0), dstEdge.getEndNode()),
+                                    Integer.parseInt(dstEdge.getProperty("LINE_NUMBER").toString()));
+                        }
                     }
                 }
             }
-            relatedNodes = tempSets;
+            returnedNodes = tempMaps;
         }
 
 
 
-        return relatedNodes;
+        return returnedNodes;
 
     }
 

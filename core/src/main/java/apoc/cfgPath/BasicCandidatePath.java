@@ -6,9 +6,7 @@ import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 
 public class BasicCandidatePath {
 
@@ -20,6 +18,8 @@ public class BasicCandidatePath {
 
     public static RelationshipType retWrite = RelationshipType.withName("retWrite");
 
+    public HashMap<Node, Integer> lineNumber;
+
     // constructor for single edge
     public BasicCandidatePath(Relationship startEdge, int pathIndex) {
         this.path = new ArrayList<>(List.of(startEdge));
@@ -28,6 +28,7 @@ public class BasicCandidatePath {
         this.pathSize = 1;
         this.retRel = (startEdge.isType(retWrite)) ?
                 new ArrayList<>(List.of(startEdge)) : new ArrayList<>();
+        this.lineNumber = new HashMap<>();
     }
 
     // constructor for appending to old path
@@ -42,6 +43,9 @@ public class BasicCandidatePath {
             int indexPos = backward ? 0 : this.retRel.size();
             this.retRel.add(indexPos, curEdge);
         }
+        this.lineNumber = new HashMap<>(oldPath.getLineNumber());
+
+        //for (oldPath.getLineNumber())
     }
 
     // get attributes
@@ -111,6 +115,14 @@ public class BasicCandidatePath {
         }
 
         return visitedComps;
+    }
+
+    public HashMap<Node, Integer> getLineNumber() {
+        return this.lineNumber;
+    }
+
+    public void setLineNumber(HashMap<Node, Integer> lineNumber) {
+        this.lineNumber = lineNumber;
     }
 
 }

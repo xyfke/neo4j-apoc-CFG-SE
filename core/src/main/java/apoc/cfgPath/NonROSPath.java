@@ -1,4 +1,4 @@
-package apoc.cfgPath;
+/**package apoc.cfgPath;
 
 import apoc.algo.CFGShortestPath;
 import apoc.util.Util;
@@ -274,7 +274,7 @@ public class NonROSPath {
 
     // helper function: adding destination CFG nodes to first edge in path
     private void updateFirstCFGNodes(BasicCandidatePath path, HashMap<String, CFGSetting> config, boolean backward) {
-        HashSet<List<Node>> endCFGs = CFGValidationHelper.getConnectionNodesAll(path.getLastEdge(), config);
+        HashMap<List<Node>> endCFGs = CFGValidationHelper.getConnectionNodesAll(path.getLastEdge(), config);
         HashSet<Node> endNodes = new HashSet<>();
         for (List<Node> endCFG : endCFGs) {
             endNodes.add(backward ? endCFG.get(0) : endCFG.get(1));
@@ -374,3 +374,4 @@ public class NonROSPath {
     }
 
 }
+ **/
