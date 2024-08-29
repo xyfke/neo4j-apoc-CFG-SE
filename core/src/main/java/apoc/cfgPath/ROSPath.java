@@ -113,7 +113,11 @@ public class ROSPath {
         }
 
         if ((isStartEdgeValid) && (end == null) && (curPath != null)) {
-            returnPaths.add(curPath);
+            if (!cfgCheck) {
+                returnPaths.add(curPath);
+            } else if (!curPath.getValidCFGs().isEmpty()) {
+                returnPaths.add(curPath);
+            }
         }
 
 
