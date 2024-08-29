@@ -356,7 +356,7 @@ public class ROSPath {
                 Node startCFG = (backward) ? curCFG.get(1) : prevCFG;
                 Node dstNode = (backward) ? prevCFG : curCFG.get(0);
 
-                if (!lineValidation(middleNode, checkLine, lineMap.get(prevCFG), prevCFG)) {
+                if (!lineValidation(middleNode, checkLine, lineMap.get(prevCFG), prevCFG, lastEdge)) {
                     continue;
                 }
 
@@ -376,8 +376,12 @@ public class ROSPath {
     }
 
     // helper function : check for other assignments
-    public boolean lineValidation(Node variable, boolean checkLine, Integer lineNum, Node cfg) {
+    public boolean lineValidation(Node variable, boolean checkLine, Integer lineNum, Node cfg, Relationship lastEdge) {
         if (!checkLine) { return true; }
+
+        if (lastEdge.isType(RelationshipType.withName("pubVar"))) {
+            return true;
+        }
 
         Iterable<Relationship> otherAssignments = variable.getRelationships(Direction.OUTGOING,
                 RelationshipType.withName("varWriteDestination"), RelationshipType.withName("retWriteDestination"));
