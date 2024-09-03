@@ -379,6 +379,10 @@ public class ROSPath {
     public boolean lineValidation(Node variable, boolean checkLine, Integer lineNum, Node cfg, Relationship lastEdge) {
         if (!checkLine) { return true; }
 
+        if (lastEdge.isType(RelationshipType.withName("pubTarget"))) {
+            return true;
+        }
+
         if (lastEdge.isType(RelationshipType.withName("pubVar"))) {
             return true;
         }
@@ -388,6 +392,10 @@ public class ROSPath {
 
         for (Relationship assign : otherAssignments) {
             if (!assign.getEndNode().equals(cfg)) {
+                continue;
+            }
+
+            if (!assign.hasProperty("LINE_NUMBER")) {
                 continue;
             }
 

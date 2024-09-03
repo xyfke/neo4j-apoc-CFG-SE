@@ -65,6 +65,8 @@ public class CFGValidationHelper {
 
             if (srcEdge.hasProperty("LINE_NUMBER")) {
                 lineNumberSet.put(endSrcNode, Integer.parseInt(srcEdge.getProperty("LINE_NUMBER").toString()));
+            } else {
+                lineNumberSet.put(endSrcNode, 0);
             }
         }
 
@@ -105,6 +107,8 @@ public class CFGValidationHelper {
                         } else if (dstEdge.hasProperty("LINE_NUMBER")) {
                             tempMaps.put(List.of(relatedNode.get(0), dstEdge.getEndNode()),
                                     Integer.parseInt(dstEdge.getProperty("LINE_NUMBER").toString()));
+                        } else {
+                            tempMaps.put(List.of(relatedNode.get(0), dstEdge.getEndNode()), 0);
                         }
                     }
                 }
@@ -121,6 +125,8 @@ public class CFGValidationHelper {
                         } else if (dstEdge.hasProperty("LINE_NUMBER")) {
                             tempMaps.put(List.of(relatedNode.get(0), dstEdge.getEndNode()),
                                     Integer.parseInt(dstEdge.getProperty("LINE_NUMBER").toString()));
+                        } else {
+                            tempMaps.put(List.of(relatedNode.get(0), dstEdge.getEndNode()), 0);
                         }
                     }
                 }
