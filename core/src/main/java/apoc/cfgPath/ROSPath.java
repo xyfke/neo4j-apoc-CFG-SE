@@ -363,7 +363,7 @@ public class ROSPath {
                 Path cfgPath = shortestPath.findSinglePath(startCFG, dstNode, condEdge);
                 if (cfgPath != null) { // if found, then we add to accepted CFG nodes
                     acceptedNewCFG.add(backward ? curCFG.get(0) : curCFG.get(1));
-                    if (checkLine) { newLineMap.put(curCFG.get(0), curCFGs.get(curCFG)); }
+                    if (checkLine) { newLineMap.put(backward ? curCFG.get(0) : curCFG.get(1), curCFGs.get(curCFG)); }
                 }
             }
         }
