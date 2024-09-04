@@ -387,19 +387,19 @@ public class ROSPath {
             return true;
         }
 
-        Iterable<Relationship> otherAssignments = variable.getRelationships(Direction.OUTGOING,
+        Iterable<Relationship> cfgEdges = cfg.getRelationships(Direction.INCOMING,
                 RelationshipType.withName("varWriteDestination"), RelationshipType.withName("retWriteDestination"));
 
-        for (Relationship assign : otherAssignments) {
-            if (!assign.getEndNode().equals(cfg)) {
+        for (Relationship cfgEdge : cfgEdges) {
+            if (!cfgEdge.getStartNode().equals(variable)) {
                 continue;
             }
 
-            if (!assign.hasProperty("LINE_NUMBER")) {
+            if (!cfgEdge.hasProperty("LINE_NUMBER")) {
                 continue;
             }
 
-            Integer otherLine = Integer.parseInt(assign.getProperty("LINE_NUMBER").toString());
+            Integer otherLine = Integer.parseInt(cfgEdge.getProperty("LINE_NUMBER").toString());
             if (otherLine > lineNum) {
                 return false;
             }
