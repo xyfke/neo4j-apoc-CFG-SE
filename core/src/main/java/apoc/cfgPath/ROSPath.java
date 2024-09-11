@@ -356,9 +356,18 @@ public class ROSPath {
             }
 
             for (List<Node> curCFG : curCFGs.keySet()) {   // nodes of new edge
+
                 // Node curNode = prevCFG.get(0);
                 Node startCFG = (backward) ? curCFG.get(1) : prevCFG;
                 Node dstNode = (backward) ? prevCFG : curCFG.get(0);
+
+                if (checkLine && startCFG.equals(dstNode)) {
+                    Integer line = curCFGs.get(curCFG);
+                    boolean prevCheck = (backward) ? line < lineMap.get(startCFG) : line > lineMap.get(startCFG);
+                    if (! prevCheck) {
+                        continue;
+                    }
+                }
 
                 Path cfgPath = shortestPath.findSinglePath(startCFG, dstNode, condEdge);
                 if (cfgPath != null) { // if found, then we add to accepted CFG nodes
