@@ -352,9 +352,9 @@ public class ROSPath {
         // attempt to find a directed path between CFG nodes from path up to second last edge to last edge
         for (Node prevCFG : prevCFGs) {   // nodes of subpath
 
-            if (!lineValidation(middleNode, checkLine, lineMap.get(prevCFG), prevCFG, lastEdge)) {
+            /**if (!lineValidation(middleNode, checkLine, lineMap.get(prevCFG), prevCFG, lastEdge)) {
                 continue;
-            }
+            }**/
 
             for (List<Node> curCFG : curCFGs.keySet()) {   // nodes of new edge
 
