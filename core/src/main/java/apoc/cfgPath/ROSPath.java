@@ -331,6 +331,7 @@ public class ROSPath {
 
         // get last edge and the CFG node related to the second last edge
         Relationship condEdge = (backward) ? path.getSecondLastEdge() : path.getLastEdge();
+        Relationship startEdge = (backward) ? path.getLastEdge() : path.getSecondLastEdge();
         Relationship lastEdge = path.getLastEdge();
         HashSet<Node> prevCFGs = path.getValidCFGs(); // nodes of subpath
 
@@ -361,11 +362,14 @@ public class ROSPath {
                 Node startCFG = (backward) ? curCFG.get(1) : prevCFG;
                 Node dstNode = (backward) ? prevCFG : curCFG.get(0);
 
-                if (checkLine && startCFG.equals(dstNode)) {
-                    Integer line = curCFGs.get(curCFG);
-                    boolean prevCheck = (backward) ? line < lineMap.get(startCFG) : line > lineMap.get(startCFG);
-                    if (! prevCheck) {
-                        continue;
+                if (checkLine && startCFG.equals(dstNode) && lastEdge.isType(RelationshipType.withName("varWrite"))) {
+                    if (startEdge.isType(RelationshipType.withName("varWrite")) ||
+                        startEdge.isType(RelationshipType.withName("retWrite"))) {
+                        Integer line = curCFGs.get(curCFG);
+                        boolean prevCheck = (backward) ? line < lineMap.get(startCFG) : line > lineMap.get(startCFG);
+                        if (!prevCheck) {
+                            continue;
+                        }
                     }
                 }
 
