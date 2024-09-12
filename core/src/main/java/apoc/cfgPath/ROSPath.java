@@ -366,7 +366,7 @@ public class ROSPath {
                     if (startEdge.isType(RelationshipType.withName("varWrite")) ||
                         startEdge.isType(RelationshipType.withName("retWrite"))) {
                         Integer line = curCFGs.get(curCFG);
-                        boolean prevCheck = (backward) ? line < lineMap.get(startCFG) : line > lineMap.get(startCFG);
+                        boolean prevCheck = (backward) ? line <= lineMap.get(startCFG) : line >= lineMap.get(startCFG);
                         if (!prevCheck) {
                             continue;
                         }
