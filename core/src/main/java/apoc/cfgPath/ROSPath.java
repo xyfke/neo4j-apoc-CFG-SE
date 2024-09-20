@@ -362,7 +362,7 @@ public class ROSPath {
                 Node startCFG = (backward) ? curCFG.get(1) : prevCFG;
                 Node dstNode = (backward) ? prevCFG : curCFG.get(0);
 
-                if (checkLine && startCFG.equals(dstNode) && lastEdge.isType(RelationshipType.withName("varWrite"))) {
+                /**if (checkLine && startCFG.equals(dstNode) && lastEdge.isType(RelationshipType.withName("varWrite"))) {
                     if (startEdge.isType(RelationshipType.withName("varWrite")) ||
                         startEdge.isType(RelationshipType.withName("retWrite"))) {
                         Integer line = curCFGs.get(curCFG);
@@ -371,7 +371,7 @@ public class ROSPath {
                             continue;
                         }
                     }
-                }
+                }**/
 
                 Path cfgPath = shortestPath.findSinglePath(startCFG, dstNode, condEdge);
                 if (cfgPath != null) { // if found, then we add to accepted CFG nodes
